@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", // JavaScript language version for the compiled output
+    "module": "NodeNext", // Uses Node.js's native ES module conventions
+    "moduleResolution": "NodeNext", // Resolves imports according to Node.js module rules
+    "rootDir": "./src", // Location of our TypeScript source files
+    "outDir": "./dist", // Location of compiled JavaScript
+    "strict": true, // Enables stricter type checking
+    "esModuleInterop": true, // Helps with compatibility when importing certain CommonJS packages
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmitOnError": true // Prevents emitting output when TypeScript compilation fails
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
