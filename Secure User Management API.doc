@@ -1,0 +1,797 @@
+# Secure User Management API
+## Project Documentation & Development Roadmap
+
+**Technology Stack:** Node.js, TypeScript, Express.js, PostgreSQL, JWT  
+**Project Type:** REST API  
+**Current Status:** Step 3 – PostgreSQL Integration Completed  
+**Purpose:** Learning, practical backend development, portfolio, and interview preparation.
+
+---
+
+# 1. Project Overview
+
+The Secure User Management API is a backend application designed to manage users securely.
+
+The application will support user registration, login, email verification, profile management, authentication, authorization, and administrative user management.
+
+The project is being developed step by step using industry-standard backend development practices.
+
+## 1.1 Main Objectives
+
+1. Build a REST API using Node.js, TypeScript, and Express.
+2. Store application data in PostgreSQL.
+3. Implement secure user registration and login.
+4. Implement email verification during registration.
+5. Implement JWT-based authentication.
+6. Implement role-based authorization.
+7. Allow administrators to manage users.
+8. Maintain a consistent API response structure.
+9. Handle errors centrally.
+10. Understand how to design an API that can handle high traffic, including a target scenario of 100,000 simultaneous requests.
+
+# 2. Technology Stack
+
+| Technology | Purpose |
+|---|---|
+| Node.js | JavaScript runtime for backend development |
+| TypeScript | Static typing and better code maintainability |
+| Express.js | Backend web framework |
+| PostgreSQL | Relational database |
+| pg | Node.js PostgreSQL driver |
+| JWT | Authentication tokens |
+| Argon2id | Secure password hashing |
+| Zod | Request validation |
+| Nodemailer | Sending emails |
+| Redis | Caching and shared data |
+| BullMQ | Background job processing |
+| Git | Version control |
+| Vitest / Supertest | Testing |
+
+Some technologies will be introduced in later development stages.
+
+# 3. Project Development Progress
+
+## Step 1 – Project Setup and TypeScript Configuration
+
+**Status: Completed**
+
+### Objectives
+- Create the Node.js project.
+- Install TypeScript.
+- Configure the TypeScript compiler.
+- Configure development and production scripts.
+- Create the initial Express server.
+- Configure environment variables.
+
+### Packages installed
+
+```bash
+npm install express dotenv
+npm install -D typescript tsx @types/node @types/express
+```
+
+### Important configuration
+
+The project uses:
+- ES Modules.
+- TypeScript strict mode.
+- `tsx watch` for development.
+- TypeScript compilation for production.
+
+### NPM scripts
+
+```json
+{
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  }
+}
+```
+
+### Initial server structure
+
+- `server.ts` starts the HTTP server.
+- `app.ts` configures the Express application.
+- `.env` stores environment variables.
+- `.gitignore` prevents sensitive and unnecessary files from being committed.
+
+### Verification
+
+The following command was tested:
+
+```bash
+npm run dev
+```
+
+The application successfully started on port 3000.
+
+The health endpoint was tested:
+
+```http
+GET /api/health
+```
+
+## Step 2 – Express Application Architecture
+
+**Status: Completed**
+
+### Objectives
+
+Organize the application into separate layers to make it maintainable and scalable.
+
+### Folder structure
+
+```text
+src/
+├── controllers/
+├── middlewares/
+├── routes/
+├── services/
+├── app.ts
+└── server.ts
+```
+
+### Responsibilities
+
+**Routes**
+
+Define API endpoints and connect them to controllers.
+
+Example:
+
+```http
+GET /api/users
+```
+
+**Controllers**
+
+Handle HTTP requests and responses.
+
+Controllers receive requests, call services, and return results.
+
+**Services**
+
+Contain business logic and database operations.
+
+**Middlewares**
+
+Execute common operations during the request-response lifecycle.
+
+Examples:
+- Request logging.
+- Authentication.
+- Error handling.
+- Route not found handling.
+
+### Middleware implementation
+
+The following middleware components were created:
+
+1. Request logger middleware.
+2. Not found middleware.
+3. Global error handler.
+
+### Middleware execution flow
+
+```text
+Incoming Request
+       |
+       v
+Express JSON Middleware
+       |
+       v
+Request Logger
+       |
+       v
+Route Matching
+       |
+       v
+Controller
+       |
+       v
+Service
+       |
+       v
+Response
+```
+
+If an error occurs, it is forwarded to the global error handler.
+
+### API endpoints implemented
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | /api/health | Check API health |
+| GET | /api/users | Retrieve users |
+
+### Additional learning
+
+- Difference between routes, controllers, and services.
+- Express middleware execution.
+- `next()` and error propagation.
+- HTTP 404 handling.
+- Centralized error handling.
+- Asynchronous controller operations.
+
+## Step 3 – PostgreSQL Database Integration
+
+**Status: Completed**
+
+### Objectives
+
+- Install and configure PostgreSQL.
+- Create the project database.
+- Connect Node.js to PostgreSQL.
+- Configure connection pooling.
+- Create the users table.
+- Replace in-memory data with database records.
+
+### 3.1 Database creation
+
+Database name:
+
+```text
+secure_user_management
+```
+
+PostgreSQL connection:
+
+```sql
+\c secure_user_management
+```
+
+### 3.2 Install PostgreSQL driver
+
+```bash
+npm install pg
+npm install -D @types/pg
+```
+
+The `pg` package allows Node.js to communicate with PostgreSQL.
+
+### 3.3 Environment configuration
+
+The following environment variables were added:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=secure_user_management
+DB_USER=postgres
+DB_PASSWORD=your_password
+```
+
+The actual password is stored locally in `.env` and must not be committed to Git.
+
+### 3.4 Database connection pool
+
+File:
+
+```text
+src/config/db.ts
+```
+
+The connection pool manages reusable PostgreSQL connections.
+
+Benefits:
+- Reuses database connections.
+- Avoids creating a new connection for every request.
+- Limits simultaneous database connections.
+- Improves database resource management.
+
+### 3.5 Database connection testing
+
+File:
+
+```text
+src/config/test-db.ts
+```
+
+The following query was used:
+
+```sql
+SELECT NOW();
+```
+
+The application successfully connected to PostgreSQL and received the database timestamp.
+
+### 3.6 Users table creation
+
+Table name:
+
+```text
+users
+```
+
+SQL structure:
+
+```sql
+CREATE TABLE users (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    password_hash TEXT NOT NULL,
+    is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT users_name_not_empty
+        CHECK (LENGTH(TRIM(name)) > 0),
+
+    CONSTRAINT users_email_not_empty
+        CHECK (LENGTH(TRIM(email)) > 0)
+);
+
+CREATE UNIQUE INDEX users_email_unique_idx
+ON users (LOWER(email));
+```
+
+### Understanding the columns
+
+| Column | Description |
+|---|---|
+| id | Unique user identifier |
+| name | User's full name |
+| email | User's email address |
+| password_hash | Securely hashed password |
+| is_email_verified | Email verification status |
+| is_active | Account activation status |
+| created_at | Account creation date |
+| updated_at | Last update date |
+
+The unique index on `LOWER(email)` prevents duplicate email addresses regardless of letter casing.
+
+### 3.7 TypeScript user type
+
+File:
+
+```text
+src/types/user.types.ts
+```
+
+The User type defines the structure of a user record returned by the database.
+
+The `id` is represented as a string because PostgreSQL `BIGINT` values are returned as strings by the default `pg` parser.
+
+### 3.8 Database integration with user service
+
+File:
+
+```text
+src/services/user.service.ts
+```
+
+The original in-memory users array was replaced with a PostgreSQL query.
+
+Example:
+
+```sql
+SELECT
+  id,
+  name,
+  email,
+  is_email_verified,
+  is_active,
+  created_at,
+  updated_at
+FROM users
+ORDER BY id ASC;
+```
+
+The query deliberately excludes `password_hash` to avoid exposing sensitive authentication data.
+
+### 3.9 Controller integration
+
+File:
+
+```text
+src/controllers/user.controller.ts
+```
+
+The controller was updated to use:
+- `async`
+- `await`
+- `try/catch`
+- `next(error)`
+
+This allows database errors to reach the centralized error handler.
+
+### 3.10 Testing
+
+Two temporary test users were inserted directly into PostgreSQL.
+
+The following endpoint was tested:
+
+```http
+GET /api/users
+```
+
+The application successfully retrieved user records from PostgreSQL.
+
+**Result:** The application now uses PostgreSQL instead of an in-memory JavaScript array.
+
+---
+
+# 4. Upcoming Development Roadmap
+
+The following stages are planned. They have not yet been implemented.
+
+## Step 4 – User Registration
+
+**Planned**
+
+Objectives:
+- Create the registration endpoint.
+- Accept name, email, and password.
+- Validate request data using Zod.
+- Hash passwords using Argon2id.
+- Check for duplicate email addresses.
+- Insert users into PostgreSQL.
+- Return standardized API responses.
+
+Expected endpoint:
+
+```http
+POST /api/auth/register
+```
+
+## Step 5 – Email Verification
+
+**Planned**
+
+Objectives:
+- Generate secure random verification tokens.
+- Store hashed verification tokens in PostgreSQL.
+- Set token expiration.
+- Send verification emails using Nodemailer.
+- Verify users through a dedicated endpoint.
+- Prevent expired or reused tokens.
+
+Expected endpoint:
+
+```http
+POST /api/auth/verify-email
+```
+
+## Step 6 – Login and JWT Authentication
+
+**Planned**
+
+Objectives:
+- Implement login.
+- Verify passwords using Argon2id.
+- Generate access tokens.
+- Generate refresh tokens.
+- Implement token expiration.
+- Implement refresh-token rotation.
+- Implement logout and token revocation.
+- Create authentication middleware.
+
+Expected endpoints:
+
+```http
+POST /api/auth/login
+POST /api/auth/refresh
+POST /api/auth/logout
+```
+
+## Step 7 – User Profile Management
+
+**Planned**
+
+Objectives:
+- Retrieve authenticated user profile.
+- Update user information.
+- Change password.
+- Restrict access to private user information.
+
+Expected endpoints:
+
+```http
+GET    /api/users/me
+PATCH  /api/users/me
+PATCH  /api/users/me/password
+```
+
+## Step 8 – Role-Based Access Control
+
+**Planned**
+
+Objectives:
+- Create roles and permissions.
+- Implement admin and regular user roles.
+- Create authorization middleware.
+- Restrict administrative endpoints.
+- Prevent unauthorized access.
+
+Planned roles:
+- Admin
+- User
+
+The database design will include roles and a user-role relationship.
+
+## Step 9 – Admin User Management
+
+**Planned**
+
+Objectives:
+- Allow admins to create users.
+- Retrieve all users.
+- Update user details.
+- Activate and deactivate accounts.
+- Assign and manage roles.
+- Send administrative emails.
+
+Possible endpoints:
+
+```http
+GET    /api/admin/users
+POST   /api/admin/users
+PATCH  /api/admin/users/:id
+DELETE /api/admin/users/:id
+```
+
+Account deactivation will be preferred over permanently deleting users when appropriate.
+
+## Step 10 – Password Reset and Email Services
+
+**Planned**
+
+Objectives:
+- Forgot-password functionality.
+- Generate password reset tokens.
+- Send reset emails.
+- Validate token expiration.
+- Reset passwords securely.
+- Invalidate relevant existing sessions or refresh tokens.
+
+## Step 11 – API Security
+
+**Planned**
+
+Security measures:
+
+- Password hashing using Argon2id.
+- JWT validation.
+- Refresh-token rotation.
+- Input validation using Zod.
+- Parameterized SQL queries.
+- Rate limiting.
+- CORS configuration.
+- Security headers using Helmet.
+- HTTPS in production.
+- Secure handling of environment variables.
+- Protection against brute-force attacks.
+- Safe error messages.
+- Authorization checks.
+
+## Step 12 – Standardized API Responses and Error Handling
+
+**Planned / To be finalized**
+
+All controllers and response-producing middleware should use a consistent response structure.
+
+Example success response:
+
+```json
+{
+  "success": true,
+  "message": "User fetched successfully",
+  "data": {
+    "id": "1",
+    "name": "Example User"
+  }
+}
+```
+
+Example error response:
+
+```json
+{
+  "success": false,
+  "message": "User not found",
+  "data": null
+}
+```
+
+A reusable response utility and centralized error handling will help maintain consistent responses throughout the application.
+
+## Step 13 – Testing
+
+**Planned**
+
+Objectives:
+- Unit testing.
+- Integration testing.
+- API endpoint testing.
+- Authentication testing.
+- Authorization testing.
+- Validation testing.
+- Error-handling testing.
+
+Tools:
+- Vitest.
+- Supertest.
+
+## Step 14 – Performance and Scalability
+
+**Planned**
+
+The project will explore how to handle a high-load scenario, including 100,000 simultaneous requests.
+
+Important concepts:
+
+**1. Database connection pooling**
+
+Control the number of active database connections.
+
+**2. Redis**
+
+Use Redis for caching, shared rate limits, and other short-lived shared data.
+
+**3. Background jobs**
+
+Use BullMQ for email delivery and other time-consuming tasks.
+
+**4. Load balancing**
+
+Distribute traffic across multiple application instances.
+
+**5. Horizontal scaling**
+
+Run multiple Node.js application instances.
+
+**6. Database optimization**
+
+- Indexing.
+- Query optimization.
+- Pagination.
+- Connection management.
+- Monitoring slow queries.
+
+**7. Load testing**
+
+Use tools such as k6 or autocannon to measure API performance.
+
+Important: 100,000 simultaneous requests is a load-testing target, not a guaranteed capacity. Actual throughput depends on infrastructure, database capacity, query performance, and request patterns.
+
+## Step 15 – Deployment and Production Readiness
+
+**Planned**
+
+Objectives:
+- Prepare production environment variables.
+- Configure production PostgreSQL.
+- Build the TypeScript application.
+- Deploy the backend.
+- Configure HTTPS.
+- Configure logging and monitoring.
+- Set up database backups.
+- Use Git and GitHub for source control.
+- Document API endpoints.
+
+Docker and CI/CD can also be introduced during this stage.
+
+---
+
+# 5. Planned Final Project Structure
+
+The structure will evolve as we add more functionality.
+
+```text
+secure-user-management-api/
+│
+├── src/
+│   ├── config/
+│   │   ├── db.ts
+│   │   └── environment.ts
+│   │
+│   ├── controllers/
+│   │   ├── auth.controller.ts
+│   │   ├── user.controller.ts
+│   │   └── admin.controller.ts
+│   │
+│   ├── services/
+│   │   ├── auth.service.ts
+│   │   ├── user.service.ts
+│   │   └── email.service.ts
+│   │
+│   ├── routes/
+│   │   ├── auth.routes.ts
+│   │   ├── user.routes.ts
+│   │   └── admin.routes.ts
+│   │
+│   ├── middlewares/
+│   │   ├── auth.middleware.ts
+│   │   ├── role.middleware.ts
+│   │   ├── validation.middleware.ts
+│   │   ├── error-handler.middleware.ts
+│   │   └── not-found.middleware.ts
+│   │
+│   ├── utils/
+│   │   ├── api-response.ts
+│   │   └── token.utils.ts
+│   │
+│   ├── types/
+│   │   └── user.types.ts
+│   │
+│   ├── validators/
+│   │   ├── auth.validator.ts
+│   │   └── user.validator.ts
+│   │
+│   ├── app.ts
+│   └── server.ts
+│
+├── .env
+├── .env.example
+├── .gitignore
+├── package.json
+├── package-lock.json
+├── tsconfig.json
+└── README.md
+```
+
+This is a target structure, not the current folder structure. Additional folders and files will be added when needed.
+
+# 6. Important Backend Concepts Being Learned
+
+Throughout this project, we will learn:
+
+1. Node.js event loop and asynchronous programming.
+2. TypeScript interfaces, types, and generics.
+3. Express routing and middleware.
+4. REST API design.
+5. PostgreSQL and SQL queries.
+6. Database relationships and constraints.
+7. Connection pooling.
+8. Password hashing and authentication.
+9. JWT and refresh-token lifecycle.
+10. Role-based authorization.
+11. API validation and security.
+12. Centralized error handling.
+13. Unit and integration testing.
+14. Caching and background processing.
+15. Load balancing and horizontal scaling.
+16. Deployment and production monitoring.
+
+# 7. Current Project Status
+
+| Development stage | Status |
+|---|---|
+| Step 1 – Project setup | Completed |
+| Step 2 – Express architecture | Completed |
+| Step 3 – PostgreSQL integration | Completed |
+| Step 4 – User registration | Pending |
+| Step 5 – Email verification | Pending |
+| Step 6 – JWT authentication | Pending |
+| Step 7 – User profile | Pending |
+| Step 8 – Role-based authorization | Pending |
+| Step 9 – Admin management | Pending |
+| Step 10 – Password reset | Pending |
+| Step 11 – API security | Pending |
+| Step 12 – Standard responses | To be finalized |
+| Step 13 – Testing | Pending |
+| Step 14 – Performance and scalability | Pending |
+| Step 15 – Deployment | Pending |
+
+# 8. Final Project Goal
+
+At the end of this project, the objective is to have a secure, maintainable, and well-structured User Management REST API.
+
+The project should demonstrate practical understanding of:
+
+- Backend architecture.
+- Database design.
+- Authentication and authorization.
+- API security.
+- Real-world error handling.
+- Testing.
+- Performance optimization.
+- Production deployment.
+
+**Development approach:** Each stage will be implemented step by step. We will understand the purpose of every file, function, middleware, database query, and security measure before moving to the next stage.
+
+The goal is not just to complete an API, but to understand how a real-world backend application is designed and developed.
