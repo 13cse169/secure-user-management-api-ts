@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 3: PostgreSQL Database Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F3F5FA; --surface:#FFFFFF; --ink:#0F1A30; --ink-2:#4A566E; --line:#D8DEEA; --soft:#E9EDF6;
+  --signal:#2B50F0; --signal-ink:#FFFFFF; --code-bg:#0F1A30; --code-ink:#DCE4FF;
+  --g:#7448DB;
+  --ok:#1B8348; --warn:#B97F00; --bad:#C42B67;
+  --radius:14px;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+  --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+  --g:#A58BFF; --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+    --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+    --g:#A58BFF; --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--signal)}
+:focus-visible{outline:3px solid var(--signal);outline-offset:3px;border-radius:6px}
+h1,h2,h3,h4{font-family:var(--display);line-height:1.12;margin:0;letter-spacing:-.02em}
+p{margin:0 0 1em;max-width:70ch}
+code{font-family:var(--mono);font-size:.86em;background:var(--soft);padding:.12em .4em;border-radius:6px}
+
+.topbar{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1280px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:800;font-size:1.05rem;display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand-mark{width:26px;height:26px;border-radius:8px;background:var(--signal);display:grid;place-items:center}
+.brand-mark svg{width:16px;height:16px}
+.spacer{flex:1}
+.btn{font:inherit;font-weight:600;font-size:.92rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:10px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:border-color .15s}
+.btn:hover{border-color:var(--signal)}
+.btn.primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal)}
+
+.shell{max-width:1280px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:260px minmax(0,1fr);gap:56px}
+.side{position:sticky;top:84px;align-self:start;padding:28px 0;max-height:calc(100vh - 84px);overflow:auto}
+.side ol{list-style:none;margin:0;padding:0;border-left:2px solid var(--line)}
+.side a{display:flex;gap:8px;padding:6px 0 6px 16px;margin-left:-2px;border-left:2px solid transparent;color:var(--ink-2);text-decoration:none;font-size:.92rem;line-height:1.35}
+.side a:hover{color:var(--ink)}
+.side a.active{color:var(--ink);font-weight:600;border-left-color:var(--g)}
+.side a.is-done::after{content:"✓";margin-left:auto;color:var(--ok);font-weight:700}
+.progress-mini{margin-top:22px;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:.86rem;color:var(--ink-2)}
+.bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;width:0;background:var(--ok);border-radius:99px;transition:width .4s}
+
+main{padding:36px 0 96px;min-width:0}
+.hero h1{font-size:clamp(2.2rem,5vw,3.8rem);font-weight:800;max-width:16ch}
+.crumb{font-size:.92rem;color:var(--ink-2);margin-bottom:14px}
+.lead{font-size:1.15rem;color:var(--ink-2);max-width:62ch;margin-top:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;border-top:4px solid var(--g)}
+.card h4{font-size:1.05rem;margin-bottom:6px}
+.card p{margin:0}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.learn{margin:20px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px}
+.learn li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start;font-size:.97rem}
+.learn li::before{content:"✓";color:var(--ok);font-weight:800}
+
+.callout{border-left:4px solid var(--c,var(--signal));background:var(--surface);border-radius:0 var(--radius) var(--radius) 0;padding:16px 20px;margin:22px 0;max-width:78ch}
+.callout strong{display:block;margin-bottom:2px;font-family:var(--display);font-size:1.02rem}
+.callout p{margin:0}
+.callout.warn{--c:var(--warn)} .callout.bad{--c:var(--bad)} .callout.ok{--c:var(--ok)}
+
+.step{padding-top:52px}
+.step-head{display:flex;gap:16px;align-items:center;margin-bottom:16px}
+.badge{flex:none;min-width:58px;height:58px;padding:0 12px;border-radius:16px;background:var(--g);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:1.1rem}
+:root[data-theme="dark"] .badge{color:#0B1222}
+.step.is-done .badge{background:var(--ok)}
+.step-head h2{font-size:clamp(1.5rem,2.8vw,2.1rem)}
+.done-row{margin-top:20px;display:flex;align-items:center;gap:10px;color:var(--ink-2);font-size:.93rem;cursor:pointer;width:fit-content}
+.done-row input{width:18px;height:18px;accent-color:var(--ok)}
+.step h3{font-size:1.2rem;margin:30px 0 10px}
+.list{margin:8px 0 0;padding-left:22px}.list li{margin:4px 0}
+
+.code{background:var(--code-bg);color:var(--code-ink);border-radius:12px;margin:14px 0;max-width:80ch}
+.code pre{margin:0;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:.84rem;line-height:1.65}
+.code .cap{padding:9px 14px;border-bottom:1px solid #243050;font-size:.8rem;color:#8e9dc4;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.code .cap b{font-weight:500;color:#C9D6FF;font-family:var(--mono)}
+.copy{font:inherit;font-size:.78rem;background:transparent;color:#BFD0FF;border:1px solid #33446f;border-radius:7px;padding:3px 10px;cursor:pointer;flex:none}
+.copy:hover{border-color:#6F8BFF}
+.term .cap::before{content:"";width:10px;height:10px;border-radius:50%;background:#ff6f9f;box-shadow:16px 0 #E8B53A,32px 0 #4CCB82;margin-right:34px;flex:none}
+.term .cap span{margin-right:auto}
+.out{border-left:4px solid var(--ok)}
+.out .cap{color:#7fe0a8}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);margin:16px 0;max-width:84ch}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:10px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--display);font-size:.95rem;background:var(--soft);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600;white-space:nowrap}
+
+.tree{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 22px;font-family:var(--mono);font-size:.85rem;line-height:1.85;max-width:420px;margin:12px 0}
+.tree .d{font-weight:500;color:var(--signal)}
+.tree .ind{padding-left:22px;border-left:2px solid var(--line);margin-left:6px}
+.tree .new{background:color-mix(in srgb,var(--g) 18%,transparent);border-radius:4px;padding:0 6px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+
+.flow{display:flex;flex-direction:column;margin:14px 0;max-width:340px}
+.node{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-weight:500;font-size:.95rem}
+.node small{display:block;font-weight:400;color:var(--ink-2);font-size:.82rem}
+.node.hl{border-color:var(--g);background:color-mix(in srgb,var(--g) 11%,var(--surface))}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row .node{flex:1;text-align:center;min-width:90px}
+.arrow{width:2px;height:14px;background:var(--line);margin-left:24px;position:relative}
+.arrow::after{content:"";position:absolute;bottom:-1px;left:-4px;border:5px solid transparent;border-top:7px solid var(--line);border-bottom:0}
+
+.walk{display:grid;gap:12px;margin:16px 0;max-width:80ch}
+.walk details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px 18px}
+.walk summary{cursor:pointer;font-weight:600;padding:12px 0;font-family:var(--display);font-size:1.05rem}
+.walk details[open]{border-color:var(--g)}
+.walk details>div{padding-bottom:10px}
+.walk .code{margin:8px 0}
+
+.steps{counter-reset:s;list-style:none;margin:16px 0;padding:0;max-width:70ch}
+.steps li{counter-increment:s;position:relative;padding:8px 0 8px 46px;border-bottom:1px dashed var(--line)}
+.steps li:last-child{border:0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:7px;width:30px;height:30px;border-radius:50%;background:var(--g);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.85rem;font-family:var(--display)}
+:root[data-theme="dark"] .steps li::before{color:#0B1222}
+
+.browser{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0;background:var(--surface);max-width:560px}
+.browser .url{background:var(--soft);padding:7px 14px;font-family:var(--mono);font-size:.8rem;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.browser pre{margin:0;padding:12px 16px;font-family:var(--mono);font-size:.82rem;overflow-x:auto}
+.st{font-family:var(--mono);font-size:.76rem;font-weight:500;padding:1px 9px;border-radius:6px;color:#fff;background:var(--ok)}
+:root[data-theme="dark"] .st{color:#0B1222}
+
+.tag{display:inline-block;font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:99px;margin-bottom:6px}
+.tag.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.tag.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.x{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.x li{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--bad);border-radius:10px;padding:12px 16px}
+.x li b{font-family:var(--display)}
+
+.finish{margin-top:56px;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:var(--radius);padding:24px}
+.finish h2{font-size:1.5rem;margin-bottom:6px}
+.finish p{margin-bottom:12px}
+.pager{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:40px;padding-top:26px;border-top:1px solid var(--line)}
+
+@media(max-width:980px){.shell{grid-template-columns:1fr;gap:0}.side{display:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      User Management API
+    </a>
+    <span class="spacer"></span>
+    <a class="btn" href="phase-2.html">Phase 2</a>
+    <a class="btn" href="../index.html#roadmap">All phases</a>
+    <a class="btn primary" href="phase-4.html">Next: Phase 4</a>
+    <button class="btn" id="theme" aria-label="Toggle light and dark theme">Theme</button>
+  </div>
+</header>
+
+<div class="shell">
+<aside class="side" aria-label="Steps in this phase">
+  <ol id="toc">
+    <li><a href="#s0">Why a database?</a></li>
+    <li><a href="#s1">3.1 Verify PostgreSQL</a></li>
+    <li><a href="#s2">3.2 Find your installation</a></li>
+    <li><a href="#s3">3.3 Create the database</a></li>
+    <li><a href="#s4">3.4 Install the pg driver</a></li>
+    <li><a href="#s5">3.5 Database config</a></li>
+    <li><a href="#s6">3.6 Connection pool</a></li>
+    <li><a href="#s7">3.7 Test the connection</a></li>
+    <li><a href="#s8">3.8 Create users table</a></li>
+    <li><a href="#s9">3.9 Fetch users</a></li>
+  </ol>
+  <div class="progress-mini">
+    <div><span id="doneCount">0</span> of 10 steps done</div>
+    <div class="bar"><i id="doneBar"></i></div>
+  </div>
+</aside>
+
+<main>
+
+<section class="hero">
+  <div class="crumb"><a href="../index.html">Overview</a> / Phase 3</div>
+  <h1>Phase 3: PostgreSQL database setup</h1>
+  <p class="lead">We replace the in-memory array in <code>user.service.ts</code> with PostgreSQL, a relational database suited to our user management API.</p>
+  <div class="grid g2" style="margin-top:26px">
+    <div class="card"><h4>Goal</h4><p>Connect the API to PostgreSQL.</p></div>
+    <div class="card"><h4>Deliverable</h4><p>A working database with a <code>users</code> table, queried by the API through <code>pg</code>.</p></div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="step" id="s0" data-step="1">
+  <div class="step-head"><span class="badge">Why</span><h2>Why do we need a database?</h2></div>
+  <p>Our current service stores users in a JavaScript array:</p>
+  <div class="code"><div class="cap"><b>src/services/user.service.ts (current)</b></div><pre>const users: User[] = [
+  { id: 1, name: "Birendra Singh", email: "birendra@example.com" },
+  { id: 2, name: "Rahul Sharma", email: "rahul@example.com" }
+];</pre></div>
+  <h3>The array has several limitations</h3>
+  <ul class="x">
+    <li><b>Data disappears.</b> Restarting the server resets the array.</li>
+    <li><b>No real persistence.</b> We can’t reliably store thousands of users.</li>
+    <li><b>No database security.</b> We can’t enforce unique email addresses through database constraints.</li>
+    <li><b>Limited querying.</b> Searching, filtering, and managing users becomes harder as the application grows.</li>
+  </ul>
+</section>
+
+<!-- 3.1 -->
+<section class="step" id="s1" data-step="2">
+  <div class="step-head"><span class="badge">3.1</span><h2>Verify PostgreSQL is running</h2></div>
+  <h3>1. Check the version</h3>
+  <p>Open your terminal (in VS Code, the integrated terminal) and run:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>psql --version</pre></div>
+  <div class="code out"><div class="cap"><span>Expected output (your version may differ; that’s fine)</span></div><pre>psql (PostgreSQL) 17.x</pre></div>
+  <div class="grid g2">
+    <div class="card" style="border-top-color:var(--ok)"><h4>Saw a version number?</h4><p>Continue to the next check.</p></div>
+    <div class="card" style="border-top-color:var(--warn)"><h4>“psql is not recognized”?</h4><p>PostgreSQL may still be installed, but its <code>bin</code> directory might not be in your Windows PATH. Don’t reinstall yet. Go to <a href="#s2">Step 3.2</a>.</p></div>
+  </div>
+
+  <h3>2. Check whether you can connect</h3>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>psql -U postgres -h localhost</pre></div>
+  <p>Enter your PostgreSQL password if prompted. The password won’t appear as you type. If the connection succeeds you’ll see a prompt like this:</p>
+  <div class="code out"><div class="cap"><span>psql prompt</span></div><pre>postgres=#</pre></div>
+  <p>Type this command to exit:</p>
+  <div class="code term"><div class="cap"><span>psql</span><button class="copy">Copy</button></div><pre>\q</pre></div>
+</section>
+
+<!-- 3.2 -->
+<section class="step" id="s2" data-step="3">
+  <div class="step-head"><span class="badge">3.2</span><h2>If you get a connection error, find your installation</h2></div>
+  <p>Only follow this step if 3.1 failed with an authentication or connection error, or <code>psql</code> wasn’t recognized.</p>
+
+  <h3>1. Check the installation folder</h3>
+  <p>Open File Explorer and go to <code>C:\Program Files\PostgreSQL\</code>. You might see a folder such as <code>C:\Program Files\PostgreSQL\17\</code>. Inside it, look for the <code>bin</code> folder:</p>
+  <div class="code"><pre>C:\Program Files\PostgreSQL\17\bin\</pre></div>
+  <p>Your version number might be different, such as 16, 17, or 18.</p>
+
+  <h3>2. Check whether psql.exe exists</h3>
+  <p>Inside the <code>bin</code> folder, look for <code>psql.exe</code>. If you find it, open your VS Code terminal and run this command, replacing <code>17</code> with your installed version:</p>
+  <div class="code term"><div class="cap"><span>PowerShell</span><button class="copy">Copy</button></div><pre>&amp; "C:\Program Files\PostgreSQL\17\bin\psql.exe" --version</pre></div>
+  <div class="code out"><div class="cap"><span>Example output</span></div><pre>psql (PostgreSQL) 17.6</pre></div>
+
+  <h3>3. Connect to PostgreSQL</h3>
+  <p>If the version command works, run:</p>
+  <div class="code term"><div class="cap"><span>PowerShell</span><button class="copy">Copy</button></div><pre>&amp; "C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres -h localhost -p 5432</pre></div>
+  <p>Enter your PostgreSQL password when prompted. If successful, you’ll see <code>postgres=#</code>, which means you’re connected to the PostgreSQL database server. To exit, type <code>\q</code>.</p>
+</section>
+
+<!-- 3.3 -->
+<section class="step" id="s3" data-step="4">
+  <div class="step-head"><span class="badge">3.3</span><h2>Create the project database</h2></div>
+  <h3>1. Connect to PostgreSQL</h3>
+  <p>If you exited, connect again using the command that worked for you (replace <code>17</code> with your version if necessary):</p>
+  <div class="code term"><div class="cap"><span>PowerShell</span><button class="copy">Copy</button></div><pre>&amp; "C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres -h localhost -p 5432</pre></div>
+  <p>Enter your password. You should see <code>postgres=#</code>.</p>
+
+  <h3>2. Create the database</h3>
+  <div class="code term"><div class="cap"><span>psql</span><button class="copy">Copy</button></div><pre>CREATE DATABASE secure_user_management;</pre></div>
+  <div class="code out"><div class="cap"><span>Expected output</span></div><pre>CREATE DATABASE</pre></div>
+  <ul class="list">
+    <li><code>CREATE DATABASE</code> creates a new database.</li>
+    <li><code>secure_user_management</code> is the database name.</li>
+    <li>We’ll store our application’s users, roles, and verification information here as we build the project.</li>
+  </ul>
+
+  <h3>3. Connect to your new database</h3>
+  <div class="code term"><div class="cap"><span>psql</span><button class="copy">Copy</button></div><pre>\c secure_user_management</pre></div>
+  <div class="code out"><div class="cap"><span>Expected output</span></div><pre>You are now connected to database "secure_user_management" as user "postgres".
+secure_user_management=#</pre></div>
+  <p>The prompt now shows <code>secure_user_management</code>, meaning you’re connected to your project database.</p>
+
+  <h3>4. Verify the database</h3>
+  <div class="code term"><div class="cap"><span>psql</span><button class="copy">Copy</button></div><pre>SELECT current_database();</pre></div>
+  <div class="code out"><div class="cap"><span>Expected result</span></div><pre> current_database
+------------------------
+ secure_user_management</pre></div>
+</section>
+
+<!-- 3.4 -->
+<section class="step" id="s4" data-step="5">
+  <div class="step-head"><span class="badge">3.4</span><h2>Install the PostgreSQL driver</h2></div>
+  <p>Open your <strong>project terminal</strong> in VS Code (not the PostgreSQL terminal) and run:</p>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm install pg
+npm install -D @types/pg</pre></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Package</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>pg</code></td><td>Lets our Node.js application communicate with PostgreSQL</td></tr>
+      <tr><td><code>@types/pg</code></td><td>Provides TypeScript type definitions for the PostgreSQL driver</td></tr>
+    </tbody>
+  </table></div>
+  <p>Wait for both installations to finish.</p>
+</section>
+
+<!-- 3.5 -->
+<section class="step" id="s5" data-step="6">
+  <div class="step-head"><span class="badge">3.5</span><h2>Add database configuration</h2></div>
+  <p>Open your project’s <code>.env</code> file and add these settings alongside your existing <code>PORT</code> and <code>NODE_ENV</code>:</p>
+  <div class="code"><div class="cap"><b>.env</b><button class="copy">Copy</button></div><pre>PORT=3000
+NODE_ENV=development
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=secure_user_management
+DB_USER=postgres
+DB_PASSWORD=your_actual_postgres_password</pre></div>
+  <p>Replace <code>your_actual_postgres_password</code> with the password you use to connect to PostgreSQL.</p>
+  <div class="callout bad"><strong>Keep .env private</strong><p>Don’t share your <code>.env</code> file or commit it to Git. We already added <code>.env</code> to <code>.gitignore</code>, which is good.</p></div>
+</section>
+
+<!-- 3.6 -->
+<section class="step" id="s6" data-step="7">
+  <div class="step-head"><span class="badge">3.6</span><h2>Create the database connection</h2></div>
+  <h3>1. Create the configuration folder</h3>
+  <p>Inside <code>src</code>, create a folder named <code>config</code> and add the file <code>src/config/db.ts</code>. Your structure should now look like this:</p>
+  <div class="tree" role="img" aria-label="Project tree with config folder">
+    <div class="d">src/</div>
+    <div class="ind">
+      <div class="d">config/</div>
+      <div class="ind"><div><span class="new">db.ts</span></div></div>
+      <div class="d">controllers/</div>
+      <div class="d">middlewares/</div>
+      <div class="d">routes/</div>
+      <div class="d">services/</div>
+      <div>app.ts</div>
+      <div>server.ts</div>
+    </div>
+  </div>
+
+  <h3>2. Add the connection pool code</h3>
+  <div class="code"><div class="cap"><b>src/config/db.ts</b><button class="copy">Copy</button></div><pre>import pg from "pg";
+import "dotenv/config";
+
+const { Pool } = pg;
+
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT) || 5432,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+});
+
+export default pool;</pre></div>
+
+  <h3>3. Understand the code</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Part</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>Pool</code></td><td>Manages a collection of reusable database connections</td></tr>
+      <tr><td><code>host</code></td><td>Where PostgreSQL is running. Here, your own computer (<code>localhost</code>)</td></tr>
+      <tr><td><code>port</code></td><td>Usually 5432, the default PostgreSQL port</td></tr>
+      <tr><td><code>database</code></td><td>Selects our <code>secure_user_management</code> database</td></tr>
+      <tr><td><code>user</code>, <code>password</code></td><td>The PostgreSQL credentials from <code>.env</code></td></tr>
+      <tr><td><code>export default pool</code></td><td>Lets other files import and use this connection pool</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout ok"><strong>Why use a pool?</strong><p>If 100 requests arrive, we don’t want to open 100 new database connections. The pool reuses connections and limits how many can be active at once.</p></div>
+  <div class="flow" aria-label="Pool diagram">
+    <div class="node">100 API requests</div><div class="arrow"></div>
+    <div class="node hl">Connection Pool<small>reuses and limits connections</small></div><div class="arrow"></div>
+    <div class="row"><div class="node">Conn 1</div><div class="node">Conn 2</div><div class="node">Conn N</div></div><div class="arrow"></div>
+    <div class="node">PostgreSQL</div>
+  </div>
+</section>
+
+<!-- 3.7 -->
+<section class="step" id="s7" data-step="8">
+  <div class="step-head"><span class="badge">3.7</span><h2>Test the connection</h2></div>
+  <h3>Create the test file</h3>
+  <div class="code"><div class="cap"><b>src/config/test-db.ts</b><button class="copy">Copy</button></div><pre>import pool from "./db.js";
+
+const testConnection = async (): Promise&lt;void&gt; =&gt; {
+  try {
+    const result = await pool.query("SELECT NOW()");
+
+    console.log("Database connected successfully!");
+    console.log("Database time:", result.rows[0].now);
+  } catch (error) {
+    console.error("Database connection failed:", error);
+  } finally {
+    await pool.end();
+  }
+};
+
+testConnection();</pre></div>
+  <p>This runs a simple SQL query to check whether the database is reachable. <code>pool.end()</code> closes the connections when the test finishes.</p>
+
+  <h3>4. Run the test</h3>
+  <p>In your project terminal, execute:</p>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npx tsx src/config/test-db.ts</pre></div>
+  <p>If everything is configured correctly, you should see output similar to:</p>
+  <div class="code out"><div class="cap"><span>Expected output</span></div><pre>Database connected successfully!
+Database time: 2026-10-25T...</pre></div>
+</section>
+
+<!-- 3.8 -->
+<section class="step" id="s8" data-step="9">
+  <div class="step-head"><span class="badge">3.8</span><h2>Create the users table</h2></div>
+  <h3>1. Connect to your project database</h3>
+  <p>Open your PostgreSQL terminal and connect:</p>
+  <div class="code term"><div class="cap"><span>psql</span><button class="copy">Copy</button></div><pre>\c secure_user_management</pre></div>
+  <p>Make sure the prompt shows <code>secure_user_management=#</code>.</p>
+
+  <h3>2. Create the users table</h3>
+  <div class="code"><div class="cap"><b>SQL</b><button class="copy">Copy</button></div><pre>CREATE TABLE users (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  password_hash TEXT NOT NULL,
+  is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT users_name_not_empty
+    CHECK (LENGTH(TRIM(name)) &gt; 0),
+
+  CONSTRAINT users_email_not_empty
+    CHECK (LENGTH(TRIM(email)) &gt; 0)
+);
+
+CREATE UNIQUE INDEX users_email_unique_idx
+ON users (LOWER(email));</pre></div>
+  <div class="code out"><div class="cap"><span>Expected output</span></div><pre>CREATE TABLE
+CREATE INDEX</pre></div>
+
+  <h3>3. Understand the columns</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Column</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>Unique ID for every user</td></tr>
+      <tr><td><code>name</code></td><td>User’s full name</td></tr>
+      <tr><td><code>email</code></td><td>User’s email address</td></tr>
+      <tr><td><code>password_hash</code></td><td>Stores the hashed password, never the original password</td></tr>
+      <tr><td><code>is_email_verified</code></td><td>Tracks email verification status</td></tr>
+      <tr><td><code>is_active</code></td><td>Allows admins to deactivate users</td></tr>
+      <tr><td><code>created_at</code></td><td>Account creation timestamp</td></tr>
+      <tr><td><code>updated_at</code></td><td>Last update timestamp</td></tr>
+    </tbody>
+  </table></div>
+
+  <h4 style="margin:22px 0 8px;font-size:1.1rem">A few important decisions</h4>
+  <div class="grid g2">
+    <div class="card"><h4>Identity column</h4><p><code>BIGINT GENERATED ALWAYS AS IDENTITY</code> automatically generates user IDs.</p></div>
+    <div class="card"><h4>Primary key</h4><p><code>PRIMARY KEY</code> ensures every user has a unique ID.</p></div>
+    <div class="card"><h4>Case-insensitive unique email</h4><p>The unique index on <code>LOWER(email)</code> prevents duplicate emails even when their casing differs. <code>User@gmail.com</code> and <code>user@gmail.com</code> can’t both be registered.</p></div>
+    <div class="card"><h4>TIMESTAMPTZ</h4><p>Stores timestamps with timezone awareness.</p></div>
+  </div>
+  <div class="callout bad"><strong>Security note</strong><p>We will hash passwords before saving them. We will never store plain-text passwords.</p></div>
+
+  <h3>4. Verify the table</h3>
+  <div class="code term"><div class="cap"><span>psql</span><button class="copy">Copy</button></div><pre>\d users</pre></div>
+  <p>This displays the table structure. Then run:</p>
+  <div class="code term"><div class="cap"><span>psql</span><button class="copy">Copy</button></div><pre>SELECT * FROM users;</pre></div>
+  <p>It should return an empty result because we haven’t registered any users yet.</p>
+</section>
+
+<!-- 3.9 -->
+<section class="step" id="s9" data-step="10">
+  <div class="step-head"><span class="badge">3.9</span><h2>Fetch users from PostgreSQL</h2></div>
+
+  <h3>1. Create a TypeScript user type</h3>
+  <div class="code"><div class="cap"><b>src/types/user.types.ts</b><button class="copy">Copy</button></div><pre>export type User = {
+  id: string;
+  name: string;
+  email: string;
+  is_email_verified: boolean;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+};</pre></div>
+  <div class="callout"><strong>Why is id a string?</strong><p>PostgreSQL <code>BIGINT</code> values can exceed JavaScript’s safe integer range. The <code>pg</code> driver normally returns <code>BIGINT</code> as a string, so we represent it as a string in TypeScript.</p></div>
+
+  <h3>2. Update the user service</h3>
+  <p>Open <code>src/services/user.service.ts</code> and replace the existing code with:</p>
+  <div class="code"><div class="cap"><b>src/services/user.service.ts</b><button class="copy">Copy</button></div><pre>import pool from "../config/db.js";
+import type { User } from "../types/user.types.js";
+
+export const getAllUsers = async (): Promise&lt;User[]&gt; =&gt; {
+  const result = await pool.query&lt;User&gt;(
+    `SELECT
+      id,
+      name,
+      email,
+      is_email_verified,
+      is_active,
+      created_at,
+      updated_at
+    FROM users
+    ORDER BY id ASC`
+  );
+
+  return result.rows;
+};</pre></div>
+  <p>We’re no longer using a JavaScript array. We’re executing an actual SQL query.</p>
+  <div class="callout warn"><strong>Why not SELECT *?</strong><p>We explicitly select columns instead of <code>SELECT *</code> so we don’t accidentally expose <code>password_hash</code> through our API.</p></div>
+
+  <h3>3. Update the user controller</h3>
+  <p>Our service now returns a Promise because database queries are asynchronous, so the controller must become asynchronous too. Open <code>src/controllers/user.controller.ts</code> and replace its code with:</p>
+  <div class="code"><div class="cap"><b>src/controllers/user.controller.ts</b><button class="copy">Copy</button></div><pre>import type { Request, Response, NextFunction } from "express";
+import { getAllUsers } from "../services/user.service.js";
+import { sendResponse } from "../utils/api-response.js";
+
+export const getUsers = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise&lt;void&gt; =&gt; {
+  try {
+    const users = await getAllUsers();
+
+    sendResponse(
+      res,
+      200,
+      "Users fetched successfully",
+      users
+    );
+  } catch (error) {
+    next(error);
+  }
+};</pre></div>
+  <h4 style="margin:20px 0 4px;font-size:1.1rem">Understand the important changes</h4>
+  <ol class="steps">
+    <li><strong>Why <code>async</code>?</strong> Because our database query takes time to execute.</li>
+    <li><strong>Why <code>await getAllUsers()</code>?</strong> It waits for PostgreSQL to return the records before sending the response.</li>
+    <li><strong>Why <code>try/catch</code>?</strong> Database operations can fail: the server may be unavailable, the connection pool may be exhausted, or the SQL query may contain an error.</li>
+    <li><strong>Why <code>next(error)</code>?</strong> It forwards the error to our existing global error-handling middleware, so we don’t format database errors separately in every controller.</li>
+  </ol>
+
+  <h3>4. Test the API</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run dev</pre></div>
+  <p>Then open the URL below. Initially you should receive an empty list, which is correct because our database has no users yet:</p>
+  <div class="browser"><div class="url"><span>http://localhost:3000/api/users</span><span class="st">200</span></div>
+<pre>{
+  "success": true,
+  "message": "Users fetched successfully",
+  "data": []
+}</pre></div>
+
+  <h3>5. Insert test users directly into PostgreSQL</h3>
+  <p>Open your PostgreSQL terminal and execute:</p>
+  <div class="code"><div class="cap"><b>SQL</b><button class="copy">Copy</button></div><pre>INSERT INTO users (name, email, password_hash)
+VALUES
+(
+  'Birendra Singh',
+  'birendra@example.com',
+  'temporary-test-hash-1'
+),
+(
+  'Rahul Sharma',
+  'rahul@example.com',
+  'temporary-test-hash-2'
+);</pre></div>
+  <div class="callout warn"><strong>Dummy hashes</strong><p>These are temporary values for testing only. We’ll implement real password hashing before registration.</p></div>
+  <p>Refresh <code>http://localhost:3000/api/users</code>. You should now see two users.</p>
+</section>
+
+<div class="finish">
+  <h2>Let’s recap what we achieved</h2>
+  <ul class="learn" style="margin:12px 0 20px">
+    <li>PostgreSQL database created</li>
+    <li>Node.js connected to PostgreSQL using <code>pg</code></li>
+    <li>Connection pool configured</li>
+    <li><code>users</code> table created</li>
+    <li>In-memory array replaced with a real SQL query</li>
+    <li>Controller updated for asynchronous database operations</li>
+    <li>API verified to return users from PostgreSQL</li>
+  </ul>
+  <p><strong>Your backend is now using a real database!</strong></p>
+  <a class="btn primary" href="phase-4.html">Continue to Phase 4: User registration</a>
+</div>
+
+<nav class="pager" aria-label="Phase navigation">
+  <a class="btn" href="phase-2.html">Phase 2: Express fundamentals</a>
+  <a class="btn" href="../index.html#roadmap">All phases</a>
+  <a class="btn primary" href="phase-4.html">Phase 4: User registration</a>
+</nav>
+
+</main>
+</div>
+
+<script>
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const KEY = 'um-api-p3-steps';
+const TOTAL = 10;
+let done = new Set();
+try{ done = new Set(JSON.parse(localStorage.getItem(KEY)||'[]')); }catch(e){}
+
+$$('.step').forEach(sec=>{
+  const n = +sec.dataset.step;
+  const label = document.createElement('label');
+  label.className = 'done-row';
+  label.innerHTML = `<input type="checkbox" ${done.has(n)?'checked':''}> I finished this step`;
+  label.querySelector('input').addEventListener('change', e=>{
+    e.target.checked ? done.add(n) : done.delete(n);
+    try{ localStorage.setItem(KEY, JSON.stringify([...done])); }catch(_){}
+    refresh();
+  });
+  sec.appendChild(label);
+});
+function refresh(){
+  $('#doneCount').textContent = done.size;
+  $('#doneBar').style.width = (done.size/TOTAL*100)+'%';
+  $$('.step').forEach(s=>s.classList.toggle('is-done', done.has(+s.dataset.step)));
+  $$('#toc a').forEach((a,i)=>a.classList.toggle('is-done', done.has(i+1)));
+}
+refresh();
+
+const root = document.documentElement;
+try{ const t = localStorage.getItem('um-api-theme'); if(t) root.setAttribute('data-theme', t); }catch(e){}
+$('#theme').addEventListener('click', ()=>{
+  const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  const next = cur==='dark'?'light':'dark';
+  root.setAttribute('data-theme', next);
+  try{ localStorage.setItem('um-api-theme', next); }catch(e){}
+});
+
+$$('.copy').forEach(b=>b.addEventListener('click',()=>{
+  const txt = b.closest('.code').querySelector('pre').innerText;
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(()=>{
+    b.textContent='Copied'; setTimeout(()=>b.textContent='Copy',1400);
+  }).catch(()=>{ b.textContent='Select and copy'; setTimeout(()=>b.textContent='Copy',1600); });
+}));
+
+const links = $$('#toc a');
+const io = new IntersectionObserver(es=>{
+  es.forEach(e=>{ if(e.isIntersecting){ links.forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+e.target.id)); } });
+},{rootMargin:'-30% 0px -60% 0px'});
+$$('.step').forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

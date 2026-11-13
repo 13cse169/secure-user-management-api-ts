@@ -1,0 +1,10 @@
+https://chatgpt.com/c/6adcf88b-6558-83ee-82d9-9dde2c03c65b
+https://chatgpt.com/c/6af64f4f-857c-83ec-b9f9-a2e04012e022
+
+https://claude.ai/chat/c753441d-5ffd-48c6-9ef8-5e39c32c7fd1
+
+{
+    "name": "Birendra Singh",
+    "email": "birendra.singh@sandbox.zazamail.link",
+    "password": "MySecurePassword@123"
+}

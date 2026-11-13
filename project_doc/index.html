@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Secure User Management API: Node.js + TypeScript Course Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F3F5FA; --surface:#FFFFFF; --ink:#0F1A30; --ink-2:#4A566E; --line:#D8DEEA; --soft:#E9EDF6;
+  --signal:#2B50F0; --signal-ink:#FFFFFF; --code-bg:#0F1A30; --code-ink:#DCE4FF;
+  --c-setup:#0E8F82; --c-db:#7448DB; --c-auth:#D8481F; --c-sec:#C42B67; --c-scale:#B97F00; --c-ship:#1B8348;
+  --ok:#1B8348; --warn:#B97F00; --bad:#C42B67;
+  --radius:14px;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+  --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+  --c-setup:#3CC9B8; --c-db:#A58BFF; --c-auth:#FF8359; --c-sec:#FF6F9F; --c-scale:#E8B53A; --c-ship:#4CCB82;
+  --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+    --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+    --c-setup:#3CC9B8; --c-db:#A58BFF; --c-auth:#FF8359; --c-sec:#FF6F9F; --c-scale:#E8B53A; --c-ship:#4CCB82;
+    --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--signal)}
+:focus-visible{outline:3px solid var(--signal);outline-offset:3px;border-radius:6px}
+h1,h2,h3,h4{font-family:var(--display);line-height:1.12;margin:0;letter-spacing:-.02em}
+p{margin:0 0 1em;max-width:70ch}
+code{font-family:var(--mono);font-size:.86em;background:var(--soft);padding:.12em .4em;border-radius:6px}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1280px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:16px}
+.brand{font-family:var(--display);font-weight:800;font-size:1.05rem;display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand-mark{width:26px;height:26px;border-radius:8px;background:var(--signal);display:grid;place-items:center}
+.brand-mark svg{width:16px;height:16px}
+.spacer{flex:1}
+.btn{font:inherit;font-weight:600;font-size:.92rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:10px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:border-color .15s,transform .15s}
+.btn:hover{border-color:var(--signal)}
+.btn.primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal)}
+.menu{position:relative}
+.menu-panel{position:absolute;right:0;top:calc(100% + 8px);width:300px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;display:none;box-shadow:0 18px 40px -18px rgba(15,26,48,.35)}
+.menu.open .menu-panel{display:block}
+.menu-panel a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:.93rem}
+.menu-panel a:hover{background:var(--soft)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--g,var(--signal))}
+
+/* layout */
+.shell{max-width:1280px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:230px minmax(0,1fr);gap:56px}
+.side{position:sticky;top:84px;align-self:start;padding:28px 0;max-height:calc(100vh - 84px);overflow:auto}
+.side ol{list-style:none;margin:0;padding:0;border-left:2px solid var(--line)}
+.side a{display:block;padding:6px 0 6px 16px;margin-left:-2px;border-left:2px solid transparent;color:var(--ink-2);text-decoration:none;font-size:.93rem;line-height:1.35}
+.side a:hover{color:var(--ink)}
+.side a.active{color:var(--ink);font-weight:600;border-left-color:var(--signal)}
+.progress-mini{margin-top:22px;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:.86rem;color:var(--ink-2)}
+.bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;width:0;background:var(--ok);border-radius:99px;transition:width .4s}
+
+main{padding:36px 0 96px;min-width:0}
+section{padding:56px 0 8px}
+section>h2{font-size:clamp(1.9rem,3.4vw,2.7rem);margin-bottom:14px}
+.lead{font-size:1.15rem;color:var(--ink-2);max-width:62ch}
+h3{font-size:1.45rem;margin:44px 0 12px}
+h4{font-size:1.1rem;margin:26px 0 8px}
+
+/* hero */
+.hero{padding-top:28px}
+.hero h1{font-size:clamp(2.5rem,6vw,4.6rem);font-weight:800;max-width:15ch}
+.hero .lead{margin-top:20px}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
+.pipe{margin-top:40px;background:var(--code-bg);color:var(--code-ink);border-radius:var(--radius);padding:22px;overflow:hidden}
+.pipe-head{font-family:var(--mono);font-size:.9rem;display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
+.verb{background:var(--c-auth);color:#fff;padding:2px 9px;border-radius:6px;font-weight:500}
+.pipe-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.pstep{border:1px solid #2a3860;border-radius:10px;padding:12px;font-size:.88rem;line-height:1.35;opacity:.35;transition:opacity .4s,border-color .4s,background .4s;position:relative}
+.pstep b{display:block;font-family:var(--display);font-size:1rem;margin-bottom:2px;color:#fff}
+.pstep.on{opacity:1;border-color:var(--signal);background:rgba(111,139,255,.12)}
+.pipe-foot{margin-top:14px;font-size:.85rem;color:#8e9dc4}
+@media(max-width:760px){.pipe-steps{grid-template-columns:1fr 1fr}}
+
+/* shared blocks */
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+.card h4{margin-top:0}
+.card p:last-child{margin-bottom:0}
+.card ul{margin:8px 0 0;padding-left:20px}
+.role{border-top:4px solid var(--g)}
+.callout{border-left:4px solid var(--g,var(--signal));background:var(--surface);border-radius:0 var(--radius) var(--radius) 0;padding:16px 20px;margin:22px 0;max-width:78ch}
+.callout strong{display:block;margin-bottom:2px;font-family:var(--display);font-size:1.02rem}
+.callout p{margin:0}
+.callout.warn{--g:var(--warn)} .callout.bad{--g:var(--bad)} .callout.ok{--g:var(--ok)}
+.list{margin:10px 0 0;padding-left:22px} .list li{margin:4px 0}
+.pill{display:inline-block;font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:99px;background:var(--soft);color:var(--ink)}
+.pill.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.pill.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
+.pill.bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.pill.sig{background:color-mix(in srgb,var(--signal) 16%,transparent);color:var(--signal)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);margin:16px 0}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--display);font-size:.95rem;background:var(--soft);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600}
+.filter{width:100%;max-width:360px;font:inherit;padding:10px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;margin-top:10px}
+
+/* code */
+.code{position:relative;background:var(--code-bg);color:var(--code-ink);border-radius:12px;margin:16px 0;max-width:78ch}
+.code pre{margin:0;padding:18px 18px 18px;overflow-x:auto;font-family:var(--mono);font-size:.84rem;line-height:1.6}
+.code .cap{padding:9px 14px;border-bottom:1px solid #243050;font-size:.8rem;color:#8e9dc4;font-family:var(--body);display:flex;justify-content:space-between;align-items:center}
+.copy{font:inherit;font-size:.78rem;background:transparent;color:#BFD0FF;border:1px solid #33446f;border-radius:7px;padding:3px 10px;cursor:pointer}
+.copy:hover{border-color:#6F8BFF}
+
+/* flow diagrams */
+.flow{display:flex;flex-direction:column;align-items:stretch;gap:0;margin:20px 0;max-width:460px}
+.node{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-weight:500;font-size:.95rem}
+.node small{display:block;font-weight:400;color:var(--ink-2);font-size:.82rem}
+.node.hl{border-color:var(--signal);background:color-mix(in srgb,var(--signal) 9%,var(--surface))}
+.node.stop{border-color:var(--bad)}
+.arrow{width:2px;height:16px;background:var(--line);margin-left:24px;position:relative}
+.arrow::after{content:"";position:absolute;bottom:-1px;left:-4px;border:5px solid transparent;border-top:7px solid var(--line);border-bottom:0}
+.branch{margin-left:24px;border-left:2px solid var(--line);padding:4px 0 4px 16px;display:flex;flex-direction:column;gap:8px}
+.branch .node{font-size:.9rem}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+@media(max-width:860px){.cols{grid-template-columns:1fr}}
+.steps{counter-reset:s;list-style:none;margin:16px 0;padding:0;max-width:70ch}
+.steps li{counter-increment:s;position:relative;padding:8px 0 8px 46px;border-bottom:1px dashed var(--line)}
+.steps li:last-child{border:0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:7px;width:30px;height:30px;border-radius:50%;background:var(--signal);color:var(--signal-ink);display:grid;place-items:center;font-weight:700;font-size:.85rem;font-family:var(--display)}
+
+/* ER */
+.er{display:flex;flex-wrap:wrap;align-items:center;gap:0;margin:20px 0}
+.ent{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:150px;overflow:hidden}
+.ent b{display:block;background:var(--signal);color:var(--signal-ink);font-family:var(--display);padding:8px 14px}
+.ent span{display:block;padding:5px 14px;font-family:var(--mono);font-size:.8rem;border-top:1px solid var(--line)}
+.rel{padding:0 14px;color:var(--ink-2);font-size:.82rem;text-align:center}
+.rel i{display:block;height:2px;background:var(--line);margin:6px 0;min-width:70px}
+
+/* methods */
+.m{font-family:var(--mono);font-size:.78rem;font-weight:500;padding:3px 9px;border-radius:6px;color:#fff;display:inline-block;min-width:62px;text-align:center}
+.m.GET{background:#1B8348}.m.POST{background:#2B50F0}.m.PATCH{background:#B97F00}.m.DELETE{background:#C42B67}
+:root[data-theme="dark"] .m{color:#0B1222}
+td.ep{font-family:var(--mono);font-size:.84rem;font-weight:400;white-space:nowrap}
+
+/* tabs */
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 0}
+.tab{font:inherit;font-weight:600;font-size:.92rem;padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.panel{display:none;margin-top:18px}
+.panel.show{display:block}
+
+/* 100k scenarios */
+.scn{display:flex;gap:14px;align-items:flex-start}
+.scn .n{font-family:var(--display);font-weight:800;font-size:1.8rem;color:var(--signal);line-height:1}
+
+/* arch diagram */
+.arch{display:flex;flex-direction:column;align-items:center;gap:0;margin:20px 0;padding:22px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.arch .row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.arch .node{text-align:center;min-width:130px}
+.arch .vline{width:2px;height:18px;background:var(--line)}
+.arch .node.dash{border-style:dashed;color:var(--ink-2)}
+
+/* ROADMAP */
+.metro{position:relative;margin-top:28px;padding-left:64px}
+.metro::before{content:"";position:absolute;left:23px;top:10px;bottom:10px;width:6px;border-radius:6px;background:linear-gradient(var(--c-setup) 0 18%,var(--c-db) 18% 27%,var(--c-auth) 27% 55%,var(--c-sec) 55% 73%,var(--c-scale) 73% 91%,var(--c-ship) 91%)}
+.stop-card{position:relative;margin-bottom:22px}
+.station{position:absolute;left:-64px;top:20px;width:52px;height:52px;border-radius:50%;background:var(--surface);border:6px solid var(--g);display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:1.05rem;z-index:1}
+.stop-card.done .station{background:var(--g);color:#fff}
+.pcard{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--g);border-radius:var(--radius);padding:22px 24px}
+.pcard header{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between}
+.pcard h3{margin:0;font-size:1.35rem}
+.pcard .goal{margin:6px 0 14px;color:var(--ink-2)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;padding:0;list-style:none}
+.chips li{background:var(--soft);padding:4px 12px;border-radius:99px;font-size:.87rem}
+.deliver{font-size:.95rem;background:color-mix(in srgb,var(--g) 11%,transparent);border-radius:10px;padding:10px 14px;margin-bottom:16px}
+.pactions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn.phase{background:var(--g);border-color:var(--g);color:#fff}
+:root[data-theme="dark"] .btn.phase{color:#0B1222}
+.check{display:flex;align-items:center;gap:8px;font-size:.92rem;cursor:pointer;color:var(--ink-2)}
+.check input{width:18px;height:18px;accent-color:var(--g)}
+details.more summary{cursor:pointer;font-weight:600;margin-bottom:10px}
+
+footer{border-top:1px solid var(--line);padding:30px 0 10px;color:var(--ink-2);font-size:.92rem}
+
+@media(max-width:980px){
+  .shell{grid-template-columns:1fr;gap:0}
+  .side{display:none}
+  .metro{padding-left:52px}.station{left:-52px;width:44px;height:44px;font-size:.95rem}
+  .metro::before{left:18px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="#top">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      User Management API
+    </a>
+    <span class="spacer"></span>
+    <div class="menu" id="menu">
+      <button class="btn primary" id="menuBtn" aria-expanded="false" aria-controls="menuPanel">Open a phase</button>
+      <div class="menu-panel" id="menuPanel"></div>
+    </div>
+    <button class="btn" id="theme" aria-label="Toggle light and dark theme">Theme</button>
+  </div>
+</header>
+
+<div class="shell" id="top">
+<aside class="side" aria-label="Page sections">
+  <ol id="toc">
+    <li><a href="#project">1. The project</a></li>
+    <li><a href="#stack">2. Technology stack</a></li>
+    <li><a href="#how">3. How it works</a></li>
+    <li><a href="#database">4. Database design</a></li>
+    <li><a href="#admin">5. Admin and authorization</a></li>
+    <li><a href="#security">6. Securing the API</a></li>
+    <li><a href="#scale">7. 100,000 requests</a></li>
+    <li><a href="#roadmap">8. Learning roadmap</a></li>
+  </ol>
+  <div class="progress-mini">
+    <div><span id="doneCount">0</span> of 11 phases done</div>
+    <div class="bar"><i id="doneBar"></i></div>
+  </div>
+</aside>
+
+<main>
+
+<!-- HERO -->
+<section class="hero" style="padding-top:8px">
+  <h1>Build a real Node.js and TypeScript backend</h1>
+  <p class="lead">A Secure User Management and Authentication API using Express, PostgreSQL, JWT and Git. We build it like a real application: you complete one step, test it, and then move to the next.</p>
+  <p class="lead" style="margin-top:-4px">You won’t just copy code. Each part is explained: what it does, why it’s needed, how the database works, how authentication differs from authorization, and how to make the API secure and scalable.</p>
+  <div class="hero-actions">
+    <a class="btn primary" href="#roadmap">See the 11 phases</a>
+    <a class="btn" href="#project">Read the overview</a>
+  </div>
+
+  <div class="pipe" aria-label="Animated example of a registration request moving through the API">
+    <div class="pipe-head"><span class="verb">POST</span><span>/api/auth/register</span><span style="color:#8e9dc4">a request’s journey</span></div>
+    <div class="pipe-steps" id="pipe">
+      <div class="pstep"><b>Validate</b>Zod checks the body at runtime</div>
+      <div class="pstep"><b>Check email</b>Query PostgreSQL for duplicates</div>
+      <div class="pstep"><b>Hash password</b>Argon2id or bcrypt</div>
+      <div class="pstep"><b>Create user</b>Saved with email_verified = false</div>
+      <div class="pstep"><b>Send email</b>Verification link, hashed token</div>
+    </div>
+    <div class="pipe-foot">Reuse what you learned in your MovieWatchlistApi project (routes, controllers, database connections, status codes), now fully in TypeScript.</div>
+  </div>
+</section>
+
+<!-- 1 PROJECT -->
+<section id="project">
+  <h2>1. Which project should we build?</h2>
+  <p class="lead">Project: <strong>Secure User Management System</strong>. Imagine you’re developing the backend for a company portal. We’ll build it as a REST API first; later you can connect a React frontend.</p>
+  <div class="grid g3" style="margin-top:22px">
+    <div class="card role" style="--g:var(--c-setup)"><h4>Users</h4><p>Register, verify their email, log in, and manage their profiles.</p></div>
+    <div class="card role" style="--g:var(--c-auth)"><h4>Administrators</h4><p>Manage users, assign roles, deactivate accounts, and send emails.</p></div>
+    <div class="card role" style="--g:var(--c-sec)"><h4>The application</h4><p>Protects its APIs against unauthorized access, abuse, and common security vulnerabilities.</p></div>
+  </div>
+
+  <h3>Main features</h3>
+  <input class="filter" id="featFilter" type="search" placeholder="Filter features, e.g. JWT, testing" aria-label="Filter features">
+  <div class="tablewrap"><table id="featTable"><thead><tr><th>Feature</th><th>What you’ll learn</th></tr></thead><tbody></tbody></table></div>
+
+  <div class="callout">
+    <strong>Traffic at scale</strong>
+    <p>We’ll also learn how to design the system for heavy traffic, including a hypothetical situation where 100,000 requests arrive around the same time. We’ll distinguish what you can implement as a beginner from what requires production infrastructure.</p>
+  </div>
+</section>
+
+<!-- 2 STACK -->
+<section id="stack">
+  <h2>2. Technology stack</h2>
+  <p class="lead">The stack I recommend, and what each piece teaches you.</p>
+  <div class="grid g3" id="stackGrid" style="margin-top:22px"></div>
+
+  <div class="callout warn">
+    <strong>JWT is not a password-hashing algorithm</strong>
+    <p>JWTs represent signed claims about a user or session. Password hashing protects stored passwords. We’ll learn both separately.</p>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h4>Passwords</h4><p>We’ll use a dedicated password-hashing algorithm such as Argon2id or bcrypt, with an appropriate configuration.</p></div>
+    <div class="card"><h4>Database access</h4><p>We start with parameterized SQL queries using <code>pg</code>, so you understand SQL and database behavior before an ORM. We can consider Prisma later, once tables, joins, relationships, and transactions make sense.</p></div>
+  </div>
+</section>
+
+<!-- 3 HOW IT WORKS -->
+<section id="how">
+  <h2>3. Understand the system before writing code</h2>
+  <p class="lead">Before coding, let’s see how the application will work.</p>
+
+  <h3>3.1 User registration and email verification</h3>
+  <p>Suppose a new user registers with this request body:</p>
+  <div class="code"><div class="cap"><span>Request body</span><button class="copy">Copy</button></div><pre>{
+  "name": "Birendra Singh",
+  "email": "birendra@example.com",
+  "password": "MyStrongPassword123!"
+}</pre></div>
+
+  <div class="cols">
+    <div>
+      <h4>The registration process</h4>
+      <ol class="steps">
+        <li>The user sends a registration request.</li>
+        <li>Express receives the request.</li>
+        <li>TypeScript defines the expected data types, while runtime validation checks the actual input.</li>
+        <li>The server checks whether the email is already registered.</li>
+        <li>The password is hashed.</li>
+        <li>The user is created in PostgreSQL with <code>email_verified = false</code>.</li>
+        <li>The server generates a secure, temporary verification token.</li>
+        <li>An email containing a verification link is sent.</li>
+        <li>The user opens the link.</li>
+        <li>The server verifies the token, checks its expiration, and marks the email as verified.</li>
+      </ol>
+      <p>The user can then log in, provided the account meets the login requirements.</p>
+    </div>
+    <div>
+      <h4>Registration flow</h4>
+      <div class="flow">
+        <div class="node">Client<small>POST /api/auth/register</small></div><div class="arrow"></div>
+        <div class="node">Express Route</div><div class="arrow"></div>
+        <div class="node">Validation Middleware</div><div class="arrow"></div>
+        <div class="node hl">Registration Controller</div>
+        <div class="branch">
+          <div class="node">Check email in PostgreSQL</div>
+          <div class="node">Hash password</div>
+          <div class="node">Create unverified user</div>
+          <div class="node">Create verification token</div>
+        </div>
+        <div class="arrow"></div>
+        <div class="node">Email Service</div><div class="arrow"></div>
+        <div class="node">Send Verification Email</div>
+      </div>
+    </div>
+  </div>
+  <div class="callout bad">
+    <strong>Important security decision</strong>
+    <p>We will not store plaintext passwords or raw verification secrets in the database. We store a password hash and a hash of the verification token.</p>
+  </div>
+  <p>We’ll also consider what happens if email delivery fails after a user is created. We can build a resend-verification endpoint and later use a background job queue for more reliable delivery.</p>
+
+  <h3>3.2 Login and JWT authentication</h3>
+  <p>After verifying their email, the user logs in.</p>
+  <div class="code"><div class="cap"><span>POST /api/auth/login · Content-Type: application/json</span><button class="copy">Copy</button></div><pre>{
+  "email": "birendra@example.com",
+  "password": "MyStrongPassword123!"
+}</pre></div>
+  <div class="cols">
+    <div>
+      <h4>The server will</h4>
+      <ol class="steps">
+        <li>Find the user by email.</li>
+        <li>Verify the submitted password against the stored password hash.</li>
+        <li>Check whether the account is active and eligible to log in.</li>
+        <li>Create a short-lived access token.</li>
+        <li>Establish a refresh-token session.</li>
+        <li>Return the access token and the appropriate refresh mechanism.</li>
+      </ol>
+      <p>Initially we use a short-lived JWT access token and a longer-lived refresh-token session.</p>
+    </div>
+    <div>
+      <h4>An access token might contain claims like these</h4>
+      <div class="code"><div class="cap"><span>Illustrative payload, not a complete token</span><button class="copy">Copy</button></div><pre>{
+  "sub": "user-uuid",
+  "role": "user",
+  "iss": "user-management-api",
+  "aud": "user-management-client"
+}</pre></div>
+      <p>The JWT is digitally signed. The server validates its signature, expiration, issuer, and audience on protected requests.</p>
+    </div>
+  </div>
+  <div class="callout warn">
+    <strong>A signed JWT is not encrypted</strong>
+    <p>Anyone holding it can generally read its payload, so never put passwords, secrets, or other sensitive data inside it.</p>
+  </div>
+
+  <h3>3.3 Accessing a protected profile</h3>
+  <div class="code"><div class="cap"><span>Request</span><button class="copy">Copy</button></div><pre>GET /api/users/me
+Authorization: Bearer &lt;access_token&gt;</pre></div>
+  <div class="cols">
+    <div>
+      <p>The request passes through authentication middleware. We create one dedicated middleware rather than repeating JWT verification in every controller.</p>
+    </div>
+    <div class="flow" style="margin-top:0">
+      <div class="node">Request</div><div class="arrow"></div>
+      <div class="node hl">Authentication Middleware</div>
+      <div class="branch"><div class="node stop">Invalid or expired token → 401 Unauthorized</div></div>
+      <div class="arrow"></div>
+      <div class="node">Extract User ID</div><div class="arrow"></div>
+      <div class="node">Profile Controller</div><div class="arrow"></div>
+      <div class="node">Fetch User from PostgreSQL</div><div class="arrow"></div>
+      <div class="node">Return Profile</div>
+    </div>
+  </div>
+
+  <h3>Authentication versus authorization</h3>
+  <div class="grid g2">
+    <div class="card role" style="--g:var(--signal)"><h4>Authentication: who are you?</h4><p>Is this request associated with a valid authenticated user?</p></div>
+    <div class="card role" style="--g:var(--c-auth)"><h4>Authorization: what are you allowed to do?</h4><p>Is this user allowed to delete another user’s account?</p></div>
+  </div>
+  <p style="margin-top:14px">These are different security checks, and we’ll implement both.</p>
+</section>
+
+<!-- 4 DATABASE -->
+<section id="database">
+  <h2>4. Design the PostgreSQL database</h2>
+  <p class="lead">One of the most important parts of the project. We design the database before building all the endpoints, so we don’t have to change it for every new feature. We’ll use UUID identifiers and explicit relationships.</p>
+
+  <h3>4.1 Database tables</h3>
+  <p>We start with five core tables and add more when the relevant features arrive.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Table</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>users</code></td><td>Stores user profiles and account status</td></tr>
+      <tr><td><code>roles</code></td><td>Defines roles such as user and admin</td></tr>
+      <tr><td><code>user_roles</code></td><td>Connects users with their roles</td></tr>
+      <tr><td><code>email_verification_tokens</code></td><td>Tracks email verification tokens</td></tr>
+      <tr><td><code>refresh_tokens</code></td><td>Tracks refresh-token sessions</td></tr>
+    </tbody>
+  </table></div>
+  <p>Later we’ll add tables for password resets, audit logs, and email delivery jobs if needed.</p>
+
+  <h4>Why separate the roles table?</h4>
+  <p>For a very small app with exactly one role per user, a <code>role</code> column in <code>users</code> could work. A separate role model is more flexible: one user might eventually have both <code>user</code> and <code>support</code> roles. So we use a many-to-many relationship.</p>
+  <div class="er" role="img" aria-label="users has many user_roles, user_roles has many to one roles">
+    <div class="ent"><b>users</b><span>id (PK)</span><span>email</span></div>
+    <div class="rel">1<i></i>many</div>
+    <div class="ent"><b>user_roles</b><span>user_id (FK)</span><span>role_id (FK)</span></div>
+    <div class="rel">many<i></i>1</div>
+    <div class="ent"><b>roles</b><span>id (PK)</span><span>name (unique)</span></div>
+  </div>
+  <p>A user can have multiple roles, and a role can belong to multiple users. This also teaches you an important relational concept: <strong>junction tables</strong>.</p>
+
+  <h3>4.2 The users table</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Column</th><th>Type</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>UUID</td><td>Unique user identifier</td></tr>
+      <tr><td><code>name</code></td><td>VARCHAR</td><td>User’s name</td></tr>
+      <tr><td><code>email</code></td><td>VARCHAR</td><td>User’s email address</td></tr>
+      <tr><td><code>password_hash</code></td><td>TEXT</td><td>Hashed password</td></tr>
+      <tr><td><code>email_verified</code></td><td>BOOLEAN</td><td>Whether the email has been verified</td></tr>
+      <tr><td><code>status</code></td><td>VARCHAR</td><td>Account status</td></tr>
+      <tr><td><code>created_at</code></td><td>TIMESTAMPTZ</td><td>Account creation time</td></tr>
+      <tr><td><code>updated_at</code></td><td>TIMESTAMPTZ</td><td>Last update time</td></tr>
+    </tbody>
+  </table></div>
+  <p>Email is unique and not nullable. Valid account statuses:</p>
+  <p><span class="pill warn">pending</span> <span class="pill ok">active</span> <span class="pill bad">suspended</span> <span class="pill">deactivated</span></p>
+  <p>These represent different account states, so we’ll define clear rules for how each one affects login and API access.</p>
+  <div class="callout">
+    <strong>Why UUID instead of an auto-incrementing integer?</strong>
+    <p>Both are valid. An integer is simple and efficient; UUIDs are useful when identifiers are generated across multiple services. UUIDs are not a substitute for authorization: knowing or guessing a user’s identifier must never grant access to that user’s data. We’ll use UUIDs to practise a common API design.</p>
+  </div>
+
+  <h3>4.3 The roles table</h3>
+  <div class="tablewrap" style="max-width:260px"><table><thead><tr><th>id</th><th>name</th></tr></thead><tbody><tr><td>1</td><td>user</td></tr><tr><td>2</td><td>admin</td></tr></tbody></table></div>
+  <p>The real table uses a primary key and a unique constraint on the role name. <code>user_roles</code> connects the two tables with foreign keys.</p>
+
+  <h3>4.4 The email verification table</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Column</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>Unique record identifier</td></tr>
+      <tr><td><code>user_id</code></td><td>User who requested verification</td></tr>
+      <tr><td><code>token_hash</code></td><td>Hash of the verification secret</td></tr>
+      <tr><td><code>expires_at</code></td><td>Expiration timestamp</td></tr>
+      <tr><td><code>used_at</code></td><td>Whether and when the token was used</td></tr>
+    </tbody>
+  </table></div>
+  <p>Why <code>expires_at</code>? If someone requests a verification link and never opens it, it shouldn’t stay valid forever. We also make sure a token can be used only once.</p>
+
+  <h3>4.5 The refresh-token table</h3>
+  <p>This table helps manage user sessions. We store:</p>
+  <ul class="list"><li>Session identifier</li><li>User identifier</li><li>Hash of the refresh token</li><li>Expiration timestamp</li><li>Revocation timestamp</li><li>Creation timestamp</li></ul>
+  <p style="margin-top:14px">When a user logs out, we revoke the refresh-token session. We also implement <strong>refresh-token rotation</strong>: when a refresh token is used, the old one is invalidated and a new one is issued. That gives more control than a long-lived access token that can’t easily be revoked.</p>
+
+  <h4>A note about database security</h4>
+  <div class="grid g3">
+    <div class="card">Primary keys and foreign keys</div>
+    <div class="card">Unique constraints for email addresses</div>
+    <div class="card">Parameterized SQL queries</div>
+    <div class="card">Transactions when several operations must succeed together</div>
+    <div class="card">Indexes for commonly queried columns</div>
+    <div class="card">Database migrations to manage schema changes</div>
+  </div>
+  <p style="margin-top:14px">We’ll learn each of these by implementing it, not just by reading definitions.</p>
+</section>
+
+<!-- 5 ADMIN -->
+<section id="admin">
+  <h2>5. Admin panel functionality and authorization</h2>
+  <p class="lead">Two primary roles: <code>user</code> and <code>admin</code>. A normal user can access their own profile but not administer other accounts. An administrator can manage user accounts and send administrative emails.</p>
+
+  <h3>Endpoints</h3>
+  <input class="filter" id="epFilter" type="search" placeholder="Filter, e.g. admin, login, DELETE" aria-label="Filter endpoints">
+  <div class="tablewrap"><table id="epTable"><thead><tr><th>Method</th><th>Endpoint</th><th>Access</th><th>Purpose</th></tr></thead><tbody></tbody></table></div>
+  <p>The admin user list uses pagination instead of returning every record in one response.</p>
+
+  <h3>How will admin authorization work?</h3>
+  <p>Suppose a regular user sends this:</p>
+  <div class="code"><div class="cap"><span>Request</span><button class="copy">Copy</button></div><pre>DELETE /api/admin/users/123
+Authorization: Bearer &lt;valid-user-token&gt;</pre></div>
+  <p>The token might be valid, but that doesn’t mean the user may delete accounts. Our middleware chain:</p>
+  <div class="code"><div class="cap"><span>TypeScript</span><button class="copy">Copy</button></div><pre>router.delete(
+  "/users/:id",
+  authenticate,
+  authorize("admin"),
+  deactivateUser
+);</pre></div>
+  <ul class="list">
+    <li><code>authenticate</code> checks the identity associated with the access token.</li>
+    <li><code>authorize("admin")</code> checks whether the authenticated user has the required role.</li>
+    <li><code>deactivateUser</code> performs the operation.</li>
+  </ul>
+  <p style="margin-top:12px">This shows the intended structure; we’ll implement and type these functions together.</p>
+  <div class="callout bad">
+    <strong>No self-promotion</strong>
+    <p>Ordinary users must not be able to assign themselves the admin role by changing a request body. Role assignment is restricted to trusted administrative operations.</p>
+  </div>
+  <div class="callout">
+    <strong>Soft deletion first</strong>
+    <p>For account deletion we initially use soft deletion or deactivation instead of removing the row. That preserves audit history and lets us revoke sessions. Later we’ll discuss when permanent deletion is appropriate.</p>
+  </div>
+</section>
+
+<!-- 6 SECURITY -->
+<section id="security">
+  <h2>6. How will we secure the API?</h2>
+  <p class="lead">Security isn’t a single middleware. It’s a collection of controls that protect different parts of the application, and we implement them gradually.</p>
+
+  <div class="tabs" role="tablist" id="secTabs">
+    <button class="tab" role="tab" aria-selected="true" data-p="s1">6.1 Passwords</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="s2">6.2 JWT</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="s3">6.3 SQL injection</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="s4">6.4 Validation</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="s5">6.5 Rate limiting</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="s6">6.6 Other controls</button>
+  </div>
+
+  <div class="panel show" id="s1" role="tabpanel">
+    <h4>Password security</h4>
+    <p>Never store a password like this:</p>
+    <div class="code"><div class="cap"><span>Never do this</span><button class="copy">Copy</button></div><pre>{
+  "email": "birendra@example.com",
+  "password": "MyStrongPassword123!"
+}</pre></div>
+    <p>Instead, the database holds a password hash, for example:</p>
+    <div class="code"><div class="cap"><span>Stored value</span></div><pre>password_hash = "$argon2id$..."</pre></div>
+    <p>The password-hashing library generates the actual hash. During login, the application verifies the submitted password against it. It never decrypts the hash, because hashes aren’t meant to be decrypted.</p>
+  </div>
+
+  <div class="panel" id="s2" role="tabpanel">
+    <h4>JWT security</h4>
+    <ul class="list">
+      <li>Sign tokens using a strong secret or private key.</li>
+      <li>Verify tokens using the correct key and algorithm.</li>
+      <li>Validate token expiration, issuer, and audience.</li>
+      <li>Keep access tokens short-lived.</li>
+      <li>Rotate and revoke refresh tokens.</li>
+      <li>Reject malformed or invalid tokens.</li>
+      <li>Avoid placing sensitive information inside JWT payloads.</li>
+    </ul>
+    <p style="margin-top:14px">For browser clients we’ll choose carefully how tokens are stored and sent. If we use cookies for refresh tokens, we configure <code>HttpOnly</code>, <code>Secure</code>, and appropriate <code>SameSite</code> settings, while also considering CSRF protection. We’ll avoid blindly storing long-lived authentication tokens in browser localStorage.</p>
+  </div>
+
+  <div class="panel" id="s3" role="tabpanel">
+    <h4>SQL injection protection</h4>
+    <p>This is unsafe, because user input is inserted directly into the SQL string:</p>
+    <div class="code"><div class="cap"><span>Unsafe</span><button class="copy">Copy</button></div><pre>const query = `
+  SELECT * FROM users
+  WHERE email = '${email}'
+`;</pre></div>
+    <p>Instead, use a parameterized query:</p>
+    <div class="code"><div class="cap"><span>Safe</span><button class="copy">Copy</button></div><pre>const result = await pool.query(
+  "SELECT id, email FROM users WHERE email = $1",
+  [email]
+);</pre></div>
+    <p>PostgreSQL treats the supplied email as a parameter, not executable SQL. We use parameterized queries throughout the project.</p>
+  </div>
+
+  <div class="panel" id="s4" role="tabpanel">
+    <h4>Request validation</h4>
+    <p>TypeScript doesn’t automatically validate incoming JSON. A client can send:</p>
+    <div class="code"><div class="cap"><span>Invalid request</span><button class="copy">Copy</button></div><pre>{
+  "name": 12345,
+  "email": "not-an-email",
+  "password": false
+}</pre></div>
+    <p>Even if our interface says <code>name</code> must be a string, that doesn’t make the request valid. We use <strong>Zod</strong> to validate data at runtime before processing it.</p>
+    <p>We validate:</p>
+    <ul class="list"><li>Email format</li><li>Password requirements</li><li>Required fields</li><li>String lengths</li><li>UUID parameters</li><li>Pagination parameters</li><li>Allowed values for account updates</li></ul>
+    <p style="margin-top:12px">We also avoid accepting arbitrary fields in sensitive requests.</p>
+  </div>
+
+  <div class="panel" id="s5" role="tabpanel">
+    <h4>Rate limiting</h4>
+    <p>Suppose an attacker repeatedly submits login requests with different passwords. A rate limiter restricts how often a client can call an endpoint. We apply different limits to different operations:</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Endpoint category</th><th>Protection</th></tr></thead>
+      <tbody>
+        <tr><td>Login</td><td>Strict rate limiting</td></tr>
+        <tr><td>Registration</td><td>Rate limiting and abuse prevention</td></tr>
+        <tr><td>Email verification</td><td>Rate limiting</td></tr>
+        <tr><td>Password reset</td><td>Strict rate limiting</td></tr>
+        <tr><td>General API</td><td>Reasonable request limits</td></tr>
+        <tr><td>Admin endpoints</td><td>Authentication, authorization, and rate limiting</td></tr>
+      </tbody>
+    </table></div>
+    <p>For a single-server learning environment, an in-memory limiter is enough to understand the concept. In a multi-instance deployment we use a shared store such as Redis, or a gateway-level limiter. Otherwise each server keeps its own counter and allows more requests than intended.</p>
+  </div>
+
+  <div class="panel" id="s6" role="tabpanel">
+    <h4>Other security controls</h4>
+    <div class="grid g2">
+      <ul class="list" style="margin:0">
+        <li>HTTPS in production</li><li>Secure CORS configuration</li><li>Appropriate security headers</li><li>Request-size limits</li><li>Protection against brute-force attacks</li><li>Generic authentication error messages where appropriate</li>
+      </ul>
+      <ul class="list" style="margin:0">
+        <li>Secrets in environment variables or a secrets manager</li><li>Least-privilege database accounts</li><li>Database connection timeouts</li><li>Dependency vulnerability checks</li><li>Audit logging for sensitive admin actions</li><li>Protection against email enumeration and abuse</li><li>Graceful error handling without exposing stack traces</li>
+      </ul>
+    </div>
+    <div class="callout bad">
+      <strong>Keep internals hidden</strong>
+      <p>Admin endpoints must not expose password hashes, verification tokens, refresh tokens, or other internal security information.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 7 SCALE -->
+<section id="scale">
+  <h2>7. What if 100,000 requests arrive at the same time?</h2>
+  <p class="lead">An excellent question, because it takes us beyond basic CRUD APIs into backend engineering. First, we need to clarify what “at the same time” means.</p>
+  <div class="grid g2" style="margin-top:18px">
+    <div class="card scn"><span class="n">1</span><p>100,000 requests arrive in a few seconds.</p></div>
+    <div class="card scn"><span class="n">2</span><p>100,000 requests are actively in progress.</p></div>
+    <div class="card scn"><span class="n">3</span><p>100,000 users remain connected simultaneously.</p></div>
+    <div class="card scn"><span class="n">4</span><p>100,000 requests per second.</p></div>
+  </div>
+  <p style="margin-top:16px">These are very different workloads. We can’t assume a server handles all of them just because it uses Node.js. Our goal: build a correct application first, then measure it and improve its capacity.</p>
+
+  <h3>7.1 Understand the architecture</h3>
+  <div class="arch">
+    <div class="node">Clients</div><div class="vline"></div>
+    <div class="node hl">Express API</div><div class="vline"></div>
+    <div class="row">
+      <div class="node">PostgreSQL Pool<small>then Database</small></div>
+      <div class="node">Email Service<small>fed by Background Jobs</small></div>
+      <div class="node dash">Redis<small>introduced later</small></div>
+    </div>
+  </div>
+  <p>This is a simplified learning architecture. Redis and background jobs arrive when we reach those topics. As the system grows we can add a load balancer and multiple API instances.</p>
+
+  <h3>7.2 Node.js handles I/O asynchronously</h3>
+  <p>Node.js suits applications that spend much of their time waiting on database queries, network responses, email provider responses, and file and network I/O.</p>
+  <div class="code"><div class="cap"><span>TypeScript</span><button class="copy">Copy</button></div><pre>const result = await pool.query(
+  "SELECT id, name, email FROM users WHERE id = $1",
+  [userId]
+);</pre></div>
+  <p>While the query waits for a response, Node.js can process other eligible work. But <code>async</code> and <code>await</code> don’t make every operation faster, and they don’t create unlimited capacity. CPU-intensive work can block the event loop, and a database can be overloaded even when Node.js looks healthy.</p>
+
+  <h3>7.3 Use a PostgreSQL connection pool</h3>
+  <p>Suppose 10,000 requests arrive and each opens a new database connection. That can overwhelm PostgreSQL and waste resources. Instead we use a pool.</p>
+  <div class="arch">
+    <div class="node">10,000 API requests</div><div class="vline"></div>
+    <div class="node hl">Connection Pool</div><div class="vline"></div>
+    <div class="row"><div class="node">Connection 1</div><div class="node">Connection 2</div><div class="node">Connection 3</div><div class="node dash">… Connection N</div></div>
+    <div class="vline"></div>
+    <div class="node">PostgreSQL</div>
+  </div>
+  <p>The pool limits simultaneous database connections from that instance. Requests wait for a free connection when the pool is busy. We configure and measure the pool rather than choosing a large number arbitrarily, and we’ll see why more connections can make performance worse if PostgreSQL is already saturated.</p>
+
+  <h3>7.4 Use caching carefully</h3>
+  <p>Some data is requested often but changes rarely, such as role definitions or certain public configuration. Redis can cache selected data and support shared rate limiting and background-job infrastructure.</p>
+  <div class="callout warn"><strong>Don’t cache everything</strong><p>User permissions, account status, and other security-sensitive data need careful invalidation and consistency decisions.</p></div>
+
+  <h3>7.5 Move slow work into background jobs</h3>
+  <p>Imagine an administrator wants to email 50,000 users. If the API sends every email before responding, the request can take a long time and time out. Instead:</p>
+  <ol class="steps">
+    <li>Admin submits email campaign</li>
+    <li>API validates request</li>
+    <li>Job added to queue</li>
+    <li>API returns job ID</li>
+    <li>Background workers process jobs</li>
+    <li>Email provider sends messages</li>
+  </ol>
+  <p>We’ll introduce a queue such as BullMQ with Redis, and cover retries, exponential backoff, duplicate-job prevention, delivery failures, and email-provider limits. A queue controls the rate at which work is processed; it doesn’t make the provider able to send unlimited messages.</p>
+
+  <h3>7.6 Add multiple API instances</h3>
+  <div class="arch">
+    <div class="node">Clients</div><div class="vline"></div>
+    <div class="node hl">Load Balancer</div><div class="vline"></div>
+    <div class="row"><div class="node">API #1</div><div class="node">API #2</div><div class="node">API #3</div></div>
+    <div class="vline"></div>
+    <div class="node">PostgreSQL</div>
+  </div>
+  <p>Instances must be designed to work together. If one stores rate-limit counters or login sessions only in its own memory, another won’t know about them. That’s why shared infrastructure matters. We’ll also cover indexes, query optimization, load testing, monitoring, horizontal scaling, and the limits of simply adding servers.</p>
+
+  <h3>What will we use to test performance?</h3>
+  <p>A tool such as k6 or autocannon. We’ll measure:</p>
+  <div class="grid g3">
+    <div class="card">Requests per second</div>
+    <div class="card">Median response time</div>
+    <div class="card">95th- and 99th-percentile response times</div>
+    <div class="card">Error rate</div>
+    <div class="card">CPU and memory usage</div>
+    <div class="card">Database connection-pool saturation</div>
+    <div class="card">PostgreSQL query performance</div>
+  </div>
+  <p style="margin-top:14px">We’ll increase the workload gradually and observe what fails first.</p>
+  <div class="callout ok">
+    <strong>The important lesson</strong>
+    <p>We won’t claim our API can handle 100,000 simultaneous requests until we’ve defined the workload, tested it, and measured the results on a known environment.</p>
+  </div>
+</section>
+
+<!-- 8 ROADMAP -->
+<section id="roadmap">
+  <h2>8. Our complete learning roadmap</h2>
+  <p class="lead">Eleven phases. Each introduces a small number of concepts, and we test the result before moving forward. Open each phase from its card, and tick it off when you finish.</p>
+  <div class="metro" id="metro"></div>
+</section>
+
+<footer>
+  Secure User Management API course overview. Progress ticks are saved in this browser only.
+</footer>
+
+</main>
+</div>
+
+<script>
+/* ============================================================
+   PHASE FILE LINKS: edit these to match your real file names.
+   Example: change 'phase-1.html' to 'Phase1.html' or 'phases/phase1.txt'
+   ============================================================ */
+const PHASE_LINKS = {
+  1:  'phases/phase-1.html',
+  2:  'phases/phase-2.html',
+  3:  'phases/phase-3.html',
+  4:  'phases/phase-4.html',
+  5:  'phases/phase-5.html',
+  6:  'phases/phase-6.html',
+  7:  'phases/phase-7.html',
+  8:  'phases/phase-8.html',
+  9:  'phases/phase-9.html',
+  10: 'phases/phase-10.html',
+  11: 'phases/phase-11.html'
+};
+
+const COLORS = {setup:'var(--c-setup)',db:'var(--c-db)',auth:'var(--c-auth)',sec:'var(--c-sec)',scale:'var(--c-scale)',ship:'var(--c-ship)'};
+
+const PHASES = [
+ {n:1, c:'setup', t:'Project setup and TypeScript fundamentals', g:'Create a working Express server using TypeScript.',
+  l:['How Node.js, TypeScript, and Express work together','Initializing an npm project','Configuring TypeScript','What tsconfig.json does','Configuring environment variables','Organizing files and folders','Using Git properly'],
+  d:'A working TypeScript API with a health-check endpoint.'},
+ {n:2, c:'setup', t:'Express fundamentals', g:'Understand how requests travel through our application.',
+  l:['Routes and HTTP methods','Controllers and services','Middleware','Request and response objects','Error-handling middleware','HTTP status codes','REST API conventions','Request validation'],
+  d:'A structured API with working routes, controllers, and validation.'},
+ {n:3, c:'db', t:'PostgreSQL and database design', g:'Connect the API to PostgreSQL.',
+  l:['Creating a database','Creating tables and relationships','Primary keys and foreign keys','Unique constraints','Database normalization','SQL queries using pg','Connection pooling','Database migrations','Transactions and indexes'],
+  d:'A working database with user and role tables.'},
+ {n:4, c:'auth', t:'User registration', g:'Register users securely.',
+  l:['Registration endpoints','Zod validation','Password hashing','Duplicate-email handling','Database transactions','Consistent error responses'],
+  d:'Users can register and their information is stored securely.'},
+ {n:5, c:'auth', t:'Email verification', g:'Verify email addresses before allowing normal login.',
+  l:['Generating secure random tokens','Hashing verification tokens','Token expiration','Single-use tokens','Email delivery','Resending verification emails','Handling email failures'],
+  d:'Users can register and verify their email.'},
+ {n:6, c:'auth', t:'Login and JWT authentication', g:'Authenticate users and protect API endpoints.',
+  l:['Login validation','Access-token generation','JWT signing and verification','Authentication middleware','Refresh tokens','Refresh-token rotation','Logout and session revocation','Authentication error handling'],
+  d:'Users can log in and access protected endpoints.'},
+ {n:7, c:'auth', t:'Authorization and admin features', g:'Implement role-based access control.',
+  l:['Roles and permissions','Admin middleware','Protecting administrative routes','Creating and deactivating users','Updating user accounts','Pagination and filtering','Audit logs'],
+  d:'Administrators can manage users, while ordinary users have restricted access.'},
+ {n:8, c:'sec', t:'Email and password management', g:'Add common account-management features.',
+  l:['Password reset','Change-password functionality','Session revocation','Admin email functionality','Email templates','Background email jobs'],
+  d:'A more complete account-management API.'},
+ {n:9, c:'sec', t:'Testing and security', g:'Make the application more reliable and secure.',
+  l:['Unit testing','Integration testing','Testing protected endpoints','Testing admin permissions','Testing database operations','Rate limiting','Security headers','CORS','API input validation','Dependency security'],
+  d:'An API with automated tests and documented security controls.'},
+ {n:10, c:'scale', t:'Performance and scalability', g:'Understand how to support higher traffic.',
+  l:['Node.js event loop','Asynchronous programming','PostgreSQL connection-pool tuning','Indexes and query optimization','Redis caching','Shared rate limiting','Background queues','Load balancing','Multiple API instances','Load testing and monitoring'],
+  d:'Performance measurements and a documented plan for scaling the application.'},
+ {n:11, c:'ship', t:'GitHub and deployment', g:'Ship the backend and document how to run it.',
+  l:['Feature branches','Meaningful commits','Pull requests','Environment configuration','Database migrations during deployment','Docker fundamentals','Production logging','Health checks','Graceful shutdown','Deployment and troubleshooting'],
+  d:'A deployed backend with a GitHub repository and setup documentation.'}
+];
+
+const FEATURES = [
+ ['User registration','Express, TypeScript, request validation'],
+ ['Email verification','Verification tokens, email services, expiration'],
+ ['User login','Password hashing, credential validation'],
+ ['JWT authentication','Access tokens, refresh tokens, token validation'],
+ ['User profile','Protected routes, database queries'],
+ ['Role-based authorization','Admin and regular-user permissions'],
+ ['Admin user management','CRUD operations, database relationships'],
+ ['Email notifications','SMTP or a transactional email provider'],
+ ['Password reset','Secure, expiring, single-use tokens'],
+ ['PostgreSQL database','Tables, relationships, constraints, indexes'],
+ ['Git and GitHub','Branches, commits, .gitignore, environment secrets'],
+ ['API security','Rate limiting, validation, SQL injection prevention'],
+ ['Automated testing','Unit tests, integration tests, authentication tests'],
+ ['Scalability','Connection pooling, caching, queues, load balancing'],
+ ['Deployment','Production configuration, logging, monitoring']
+];
+
+const STACK = [
+ ['Node.js','JavaScript runtime','Event loop, asynchronous operations'],
+ ['TypeScript','Type safety','Types, interfaces, type aliases, generics'],
+ ['Express','HTTP server and routing','Middleware, routes, controllers'],
+ ['PostgreSQL','Relational database','SQL, constraints, transactions, indexes'],
+ ['pg','PostgreSQL driver','Queries and connection pooling'],
+ ['JWT','Token-based authentication','Signing, verification, token expiration'],
+ ['bcrypt or Argon2id','Password hashing','Secure password storage'],
+ ['Zod','Input validation','Validating requests using TypeScript'],
+ ['Nodemailer','Sending emails','SMTP and email verification'],
+ ['Git and GitHub','Version control','Commits, branches, collaboration'],
+ ['Vitest or Jest','Testing','Unit and integration testing'],
+ ['Supertest','API testing','Testing Express endpoints'],
+ ['Docker','Optional later step','Containers and deployment']
+];
+
+const ENDPOINTS = [
+ ['POST','/api/auth/register','Public','Register a user'],
+ ['POST','/api/auth/verify-email','Public, token required','Verify email'],
+ ['POST','/api/auth/login','Public','Log in'],
+ ['POST','/api/auth/refresh','Refresh token required','Renew access'],
+ ['POST','/api/auth/logout','Authenticated session','Log out'],
+ ['GET','/api/users/me','Authenticated','View own profile'],
+ ['PATCH','/api/users/me','Authenticated','Update own profile'],
+ ['GET','/api/admin/users','Admin','List users'],
+ ['POST','/api/admin/users','Admin','Create a user'],
+ ['GET','/api/admin/users/:id','Admin','View a user’s record'],
+ ['PATCH','/api/admin/users/:id','Admin','Update a user’s account'],
+ ['DELETE','/api/admin/users/:id','Admin','Deactivate a user'],
+ ['POST','/api/admin/users/:id/send-email','Admin','Send an email']
+];
+
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+
+/* ---------- render tables ---------- */
+$('#featTable tbody').innerHTML = FEATURES.map(f=>`<tr><td>${f[0]}</td><td>${f[1]}</td></tr>`).join('');
+$('#stackGrid').innerHTML = STACK.map(s=>`<div class="card"><h4>${s[0]}</h4><p><strong>${s[1]}</strong></p><p style="color:var(--ink-2);font-size:.95rem">${s[2]}</p></div>`).join('');
+const accessPill = a => a==='Admin'?'bad':a==='Public'?'ok':a.startsWith('Public')?'ok':a==='Authenticated'||a==='Authenticated session'?'sig':'warn';
+$('#epTable tbody').innerHTML = ENDPOINTS.map(e=>`<tr><td><span class="m ${e[0]}">${e[0]}</span></td><td class="ep">${e[1]}</td><td><span class="pill ${accessPill(e[2])}">${e[2]}</span></td><td>${e[3]}</td></tr>`).join('');
+
+function wireFilter(inputSel, tableSel){
+  $(inputSel).addEventListener('input', e=>{
+    const q = e.target.value.trim().toLowerCase();
+    $$(tableSel+' tbody tr').forEach(r=>{ r.hidden = q && !r.textContent.toLowerCase().includes(q); });
+  });
+}
+wireFilter('#featFilter','#featTable');
+wireFilter('#epFilter','#epTable');
+
+/* ---------- progress (saved in this browser) ---------- */
+let done = new Set();
+try{ done = new Set(JSON.parse(localStorage.getItem('um-api-done')||'[]')); }catch(e){}
+function saveDone(){ try{ localStorage.setItem('um-api-done', JSON.stringify([...done])); }catch(e){} }
+function updateProgress(){
+  $('#doneCount').textContent = done.size;
+  $('#doneBar').style.width = (done.size/PHASES.length*100)+'%';
+  $$('.stop-card').forEach(c=>c.classList.toggle('done', done.has(+c.dataset.n)));
+}
+
+/* ---------- roadmap ---------- */
+$('#metro').innerHTML = PHASES.map(p=>`
+ <div class="stop-card" data-n="${p.n}" id="phase-${p.n}" style="--g:${COLORS[p.c]}">
+   <div class="station" aria-hidden="true">${p.n}</div>
+   <article class="pcard">
+     <header>
+       <h3>Phase ${p.n}: ${p.t}</h3>
+     </header>
+     <p class="goal"><strong>Goal:</strong> ${p.g}</p>
+     <details class="more" ${p.n===1?'open':''}>
+       <summary>We’ll learn (${p.l.length} topics)</summary>
+       <ul class="chips">${p.l.map(x=>`<li>${x}</li>`).join('')}</ul>
+     </details>
+     <div class="deliver"><strong>Deliverable:</strong> ${p.d}</div>
+     <div class="pactions">
+       <a class="btn phase" href="${PHASE_LINKS[p.n]}">Open Phase ${p.n}</a>
+       <label class="check"><input type="checkbox" data-n="${p.n}" ${done.has(p.n)?'checked':''}> Mark as done</label>
+     </div>
+   </article>
+ </div>`).join('');
+
+$$('#metro input[type=checkbox]').forEach(cb=>cb.addEventListener('change',()=>{
+  const n = +cb.dataset.n; cb.checked ? done.add(n) : done.delete(n); saveDone(); updateProgress();
+}));
+updateProgress();
+
+/* ---------- phase menu ---------- */
+$('#menuPanel').innerHTML = PHASES.map(p=>`<a href="${PHASE_LINKS[p.n]}"><span class="dot" style="--g:${COLORS[p.c]}"></span>Phase ${p.n}: ${p.t}</a>`).join('');
+const menu = $('#menu'), menuBtn = $('#menuBtn');
+menuBtn.addEventListener('click', e=>{ e.stopPropagation(); const o = menu.classList.toggle('open'); menuBtn.setAttribute('aria-expanded', o); });
+document.addEventListener('click', e=>{ if(!menu.contains(e.target)){ menu.classList.remove('open'); menuBtn.setAttribute('aria-expanded','false'); } });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ menu.classList.remove('open'); menuBtn.setAttribute('aria-expanded','false'); } });
+
+/* ---------- theme ---------- */
+const root = document.documentElement;
+try{ const t = localStorage.getItem('um-api-theme'); if(t) root.setAttribute('data-theme', t); }catch(e){}
+$('#theme').addEventListener('click', ()=>{
+  const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  const next = cur==='dark'?'light':'dark';
+  root.setAttribute('data-theme', next);
+  try{ localStorage.setItem('um-api-theme', next); }catch(e){}
+});
+
+/* ---------- tabs ---------- */
+$$('#secTabs .tab').forEach(tab=>tab.addEventListener('click',()=>{
+  $$('#secTabs .tab').forEach(t=>t.setAttribute('aria-selected', t===tab));
+  $$('#security .panel').forEach(p=>p.classList.toggle('show', p.id===tab.dataset.p));
+}));
+
+/* ---------- copy buttons ---------- */
+$$('.copy').forEach(b=>b.addEventListener('click',()=>{
+  const txt = b.closest('.code').querySelector('pre').innerText;
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(()=>{
+    b.textContent='Copied'; setTimeout(()=>b.textContent='Copy',1400);
+  }).catch(()=>{ b.textContent='Select and copy'; setTimeout(()=>b.textContent='Copy',1600); });
+}));
+
+/* ---------- hero pipeline (one-time sequence) ---------- */
+(function(){
+  const steps = $$('#pipe .pstep');
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches){ steps.forEach(s=>s.classList.add('on')); return; }
+  steps.forEach((s,i)=>setTimeout(()=>s.classList.add('on'), 500 + i*650));
+})();
+
+/* ---------- active section in sidebar ---------- */
+const links = $$('#toc a');
+const io = new IntersectionObserver(es=>{
+  es.forEach(e=>{ if(e.isIntersecting){ links.forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+e.target.id)); } });
+},{rootMargin:'-30% 0px -60% 0px'});
+$$('main section[id]').forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

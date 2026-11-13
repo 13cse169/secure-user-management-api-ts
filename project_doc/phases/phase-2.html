@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 2: Routes, Controllers, Services, and Middleware</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F3F5FA; --surface:#FFFFFF; --ink:#0F1A30; --ink-2:#4A566E; --line:#D8DEEA; --soft:#E9EDF6;
+  --signal:#2B50F0; --signal-ink:#FFFFFF; --code-bg:#0F1A30; --code-ink:#DCE4FF;
+  --g:#0E8F82;
+  --ok:#1B8348; --warn:#B97F00; --bad:#C42B67;
+  --radius:14px;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+  --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+  --g:#3CC9B8; --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+    --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+    --g:#3CC9B8; --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--signal)}
+:focus-visible{outline:3px solid var(--signal);outline-offset:3px;border-radius:6px}
+h1,h2,h3,h4{font-family:var(--display);line-height:1.12;margin:0;letter-spacing:-.02em}
+p{margin:0 0 1em;max-width:70ch}
+code{font-family:var(--mono);font-size:.86em;background:var(--soft);padding:.12em .4em;border-radius:6px}
+
+.topbar{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1280px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:800;font-size:1.05rem;display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand-mark{width:26px;height:26px;border-radius:8px;background:var(--signal);display:grid;place-items:center}
+.brand-mark svg{width:16px;height:16px}
+.spacer{flex:1}
+.btn{font:inherit;font-weight:600;font-size:.92rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:10px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:border-color .15s}
+.btn:hover{border-color:var(--signal)}
+.btn.primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal)}
+
+.shell{max-width:1280px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:260px minmax(0,1fr);gap:56px}
+.side{position:sticky;top:84px;align-self:start;padding:28px 0;max-height:calc(100vh - 84px);overflow:auto}
+.side ol{list-style:none;margin:0;padding:0;border-left:2px solid var(--line)}
+.side a{display:flex;gap:8px;padding:6px 0 6px 16px;margin-left:-2px;border-left:2px solid transparent;color:var(--ink-2);text-decoration:none;font-size:.92rem;line-height:1.35}
+.side a:hover{color:var(--ink)}
+.side a.active{color:var(--ink);font-weight:600;border-left-color:var(--g)}
+.side a.is-done::after{content:"✓";margin-left:auto;color:var(--ok);font-weight:700}
+.progress-mini{margin-top:22px;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:.86rem;color:var(--ink-2)}
+.bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;width:0;background:var(--ok);border-radius:99px;transition:width .4s}
+
+main{padding:36px 0 96px;min-width:0}
+.hero h1{font-size:clamp(2.2rem,5vw,3.8rem);font-weight:800;max-width:18ch}
+.crumb{font-size:.92rem;color:var(--ink-2);margin-bottom:14px}
+.lead{font-size:1.15rem;color:var(--ink-2);max-width:62ch;margin-top:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;border-top:4px solid var(--g)}
+.card h4{font-size:1.05rem;margin-bottom:6px}
+.card p{margin:0}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0;padding:0;list-style:none}
+.chips li{background:var(--soft);padding:4px 12px;border-radius:99px;font-size:.87rem}
+.learn{margin:24px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.learn li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start;font-size:.97rem}
+.learn li::before{content:"✓";color:var(--ok);font-weight:800}
+
+.callout{border-left:4px solid var(--c,var(--signal));background:var(--surface);border-radius:0 var(--radius) var(--radius) 0;padding:16px 20px;margin:22px 0;max-width:78ch}
+.callout strong{display:block;margin-bottom:2px;font-family:var(--display);font-size:1.02rem}
+.callout p{margin:0}
+.callout.warn{--c:var(--warn)} .callout.bad{--c:var(--bad)} .callout.ok{--c:var(--ok)}
+
+.step{padding-top:52px}
+.step-head{display:flex;gap:16px;align-items:center;margin-bottom:16px}
+.badge{flex:none;min-width:58px;height:58px;padding:0 12px;border-radius:16px;background:var(--g);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:1.15rem}
+:root[data-theme="dark"] .badge{color:#0B1222}
+.step.is-done .badge{background:var(--ok)}
+.step-head h2{font-size:clamp(1.5rem,2.8vw,2.1rem)}
+.done-row{margin-top:20px;display:flex;align-items:center;gap:10px;color:var(--ink-2);font-size:.93rem;cursor:pointer;width:fit-content}
+.done-row input{width:18px;height:18px;accent-color:var(--ok)}
+.step h3{font-size:1.2rem;margin:28px 0 10px}
+.list{margin:8px 0 0;padding-left:22px}.list li{margin:4px 0}
+
+.code{background:var(--code-bg);color:var(--code-ink);border-radius:12px;margin:14px 0;max-width:80ch}
+.code pre{margin:0;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:.84rem;line-height:1.65}
+.code .cap{padding:9px 14px;border-bottom:1px solid #243050;font-size:.8rem;color:#8e9dc4;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.code .cap b{font-weight:500;color:#C9D6FF;font-family:var(--mono)}
+.copy{font:inherit;font-size:.78rem;background:transparent;color:#BFD0FF;border:1px solid #33446f;border-radius:7px;padding:3px 10px;cursor:pointer;flex:none}
+.copy:hover{border-color:#6F8BFF}
+.term .cap::before{content:"";width:10px;height:10px;border-radius:50%;background:#ff6f9f;box-shadow:16px 0 #E8B53A,32px 0 #4CCB82;margin-right:34px;flex:none}
+.term .cap span{margin-right:auto}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);margin:16px 0;max-width:84ch}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:10px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--display);font-size:.95rem;background:var(--soft);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600;white-space:nowrap}
+
+.tree{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 22px;font-family:var(--mono);font-size:.85rem;line-height:1.85;max-width:460px;margin:12px 0}
+.tree .d{font-weight:500;color:var(--signal)}
+.tree .ind{padding-left:22px;border-left:2px solid var(--line);margin-left:6px}
+.tree .new{background:color-mix(in srgb,var(--g) 18%,transparent);border-radius:4px;padding:0 6px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.cols>div>h4{font-size:1.05rem;margin-bottom:6px}
+
+/* flow */
+.flow{display:flex;flex-direction:column;margin:16px 0;max-width:360px}
+.node{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-weight:500;font-size:.95rem}
+.node small{display:block;font-weight:400;color:var(--ink-2);font-size:.82rem}
+.node.hl{border-color:var(--g);background:color-mix(in srgb,var(--g) 11%,var(--surface))}
+.node.back{border-style:dashed;color:var(--ink-2)}
+.arrow{width:2px;height:14px;background:var(--line);margin-left:24px;position:relative}
+.arrow::after{content:"";position:absolute;bottom:-1px;left:-4px;border:5px solid transparent;border-top:7px solid var(--line);border-bottom:0}
+.arrow em{position:absolute;left:14px;top:-1px;font-style:normal;font-size:.78rem;color:var(--ink-2);font-family:var(--mono);white-space:nowrap}
+
+/* walk */
+.walk{display:grid;gap:12px;margin:16px 0;max-width:80ch}
+.walk details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px 18px}
+.walk summary{cursor:pointer;font-weight:600;padding:12px 0;font-family:var(--display);font-size:1.05rem}
+.walk details[open]{border-color:var(--g)}
+.walk details>div{padding-bottom:10px}
+.walk .code{margin:8px 0}
+
+.steps{counter-reset:s;list-style:none;margin:16px 0;padding:0;max-width:70ch}
+.steps li{counter-increment:s;position:relative;padding:8px 0 8px 46px;border-bottom:1px dashed var(--line)}
+.steps li:last-child{border:0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:7px;width:30px;height:30px;border-radius:50%;background:var(--g);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.85rem;font-family:var(--display)}
+:root[data-theme="dark"] .steps li::before{color:#0B1222}
+
+/* test cards */
+.tests{display:grid;gap:16px;margin:16px 0}
+.test{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;max-width:640px}
+.test h4{font-size:1.05rem;margin-bottom:8px}
+.browser{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:10px 0;background:var(--paper)}
+.browser .url{background:var(--soft);padding:7px 14px;font-family:var(--mono);font-size:.8rem;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.browser pre{margin:0;padding:12px 16px;font-family:var(--mono);font-size:.82rem;overflow-x:auto}
+.st{font-family:var(--mono);font-size:.76rem;font-weight:500;padding:1px 9px;border-radius:6px;color:#fff;background:var(--ok)}
+.st.e{background:var(--bad)}
+:root[data-theme="dark"] .st{color:#0B1222}
+.termline{font-family:var(--mono);font-size:.82rem;background:var(--code-bg);color:var(--code-ink);padding:8px 14px;border-radius:8px;margin:8px 0}
+
+/* compare */
+.cmp{display:grid;gap:10px}
+.cmp .code{margin:0;max-width:none}
+.tag{display:inline-block;font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:99px;margin-bottom:6px}
+.tag.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.tag.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+
+.finish{margin-top:56px;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:var(--radius);padding:24px}
+.finish h2{font-size:1.5rem;margin-bottom:6px}
+.finish p{margin-bottom:12px}
+.pager{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:40px;padding-top:26px;border-top:1px solid var(--line)}
+
+@media(max-width:980px){.shell{grid-template-columns:1fr;gap:0}.side{display:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      User Management API
+    </a>
+    <span class="spacer"></span>
+    <a class="btn" href="phase-1.html">Phase 1</a>
+    <a class="btn" href="../index.html#roadmap">All phases</a>
+    <a class="btn primary" href="phase-3.html">Next: Phase 3</a>
+    <button class="btn" id="theme" aria-label="Toggle light and dark theme">Theme</button>
+  </div>
+</header>
+
+<div class="shell">
+<aside class="side" aria-label="Sections in this phase">
+  <ol id="toc">
+    <li><a href="#p1">1. How a request travels</a></li>
+    <li><a href="#p2">2. New folder structure</a></li>
+    <li><a href="#p3">3. Routes</a></li>
+    <li><a href="#p4">4. Controllers</a></li>
+    <li><a href="#p5">5. Services</a></li>
+    <li><a href="#p6">6. Controller + service</a></li>
+    <li><a href="#p7">7. The user route</a></li>
+    <li><a href="#p8">8. Middleware</a></li>
+    <li><a href="#p9">9. 404 handling</a></li>
+    <li><a href="#p10">10. Centralized errors</a></li>
+    <li><a href="#p11">11. Update app.ts</a></li>
+    <li><a href="#p12">12. Test your app</a></li>
+    <li><a href="#p13">13. Standard responses</a></li>
+  </ol>
+  <div class="progress-mini">
+    <div><span id="doneCount">0</span> of 13 sections done</div>
+    <div class="bar"><i id="doneBar"></i></div>
+  </div>
+</aside>
+
+<main>
+
+<section class="hero">
+  <div class="crumb"><a href="../index.html">Overview</a> / Phase 2</div>
+  <h1>Phase 2: Routes, controllers, services, and middleware</h1>
+  <p class="lead">Since Phase 1 is working, we transform the basic Express server into a well-organized backend application using TypeScript. Professional backends separate responsibilities instead of putting everything in one file.</p>
+  <p class="lead" style="margin-top:0">We’ll build this incrementally on the existing Secure User Management API. You don’t need to understand every concept immediately: each file is explained along the way.</p>
+
+  <div class="grid g2" style="margin-top:26px">
+    <div class="card"><h4>Goal</h4><p>Understand how requests travel through our application.</p></div>
+    <div class="card"><h4>Deliverable</h4><p>A structured API with working routes, controllers, and validation-ready structure.</p></div>
+  </div>
+
+  <h3 style="margin:34px 0 0;font-size:1.25rem">By the end you will understand</h3>
+  <ul class="learn">
+    <li>How an Express request travels through your application</li>
+    <li>What routes do</li>
+    <li>What controllers do</li>
+    <li>What services do</li>
+    <li>What middleware does</li>
+    <li>How centralized error handling works</li>
+    <li>How TypeScript helps us organize our code</li>
+  </ul>
+</section>
+
+<!-- 1 -->
+<section class="step" id="p1" data-step="1">
+  <div class="step-head"><span class="badge">1</span><h2>First, understand how a backend request works</h2></div>
+  <p>Imagine a user opens <code>GET /api/health</code>. The request reaches our Express application, and in a well-organized backend it passes through different layers. Our application will eventually follow this structure:</p>
+  <div class="cols">
+    <div class="flow" aria-label="Request flow">
+      <div class="node">Client<small>Browser / React / Postman</small></div><div class="arrow"></div>
+      <div class="node">Express App</div><div class="arrow"></div>
+      <div class="node hl">Middleware</div><div class="arrow"></div>
+      <div class="node hl">Routes</div><div class="arrow"></div>
+      <div class="node hl">Controller</div><div class="arrow"></div>
+      <div class="node hl">Service</div><div class="arrow"></div>
+      <div class="node">Database</div><div class="arrow"><em>back up the chain</em></div>
+      <div class="node back">Service</div><div class="arrow"></div>
+      <div class="node back">Controller</div><div class="arrow"></div>
+      <div class="node">Response</div>
+    </div>
+    <div>
+      <h4>Let’s understand the responsibilities</h4>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Layer</th><th>Responsibility</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td>App</td><td>Configures Express</td><td>JSON parsing and middleware</td></tr>
+          <tr><td>Middleware</td><td>Processes requests before or after handlers</td><td>Logging, authentication</td></tr>
+          <tr><td>Routes</td><td>Maps HTTP methods and paths to handlers</td><td><code>GET /api/users/me</code></td></tr>
+          <tr><td>Controller</td><td>Handles HTTP requests and responses</td><td>Reads request parameters</td></tr>
+          <tr><td>Service</td><td>Contains application/business logic</td><td>Registering a user</td></tr>
+          <tr><td>Database layer</td><td>Communicates with PostgreSQL</td><td>Finding a user by email</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="callout"><strong>One of several valid architectures</strong><p>This is not the only valid architecture, but it is a good structure for our project. For now we won’t connect PostgreSQL. We learn the architecture first.</p></div>
+</section>
+
+<!-- 2 -->
+<section class="step" id="p2" data-step="2">
+  <div class="step-head"><span class="badge">2</span><h2>Create the new folder structure</h2></div>
+  <div class="cols">
+    <div>
+      <h4>Currently</h4>
+      <div class="tree">
+        <div class="d">secure-user-management-api/</div>
+        <div class="ind">
+          <div class="d">src/</div>
+          <div class="ind"><div>app.ts</div><div>server.ts</div></div>
+          <div>package.json</div><div>tsconfig.json</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h4>We’ll organize it like this</h4>
+      <div class="tree">
+        <div class="d">secure-user-management-api/</div>
+        <div class="ind">
+          <div class="d">src/</div>
+          <div class="ind">
+            <div class="d">controllers/</div>
+            <div class="ind"><div><span class="new">health.controller.ts</span></div><div><span class="new">user.controller.ts</span></div></div>
+            <div class="d">services/</div>
+            <div class="ind"><div><span class="new">user.service.ts</span></div></div>
+            <div class="d">routes/</div>
+            <div class="ind"><div><span class="new">health.routes.ts</span></div><div><span class="new">user.routes.ts</span></div></div>
+            <div class="d">middlewares/</div>
+            <div class="ind"><div><span class="new">request-logger.middleware.ts</span></div><div><span class="new">not-found.middleware.ts</span></div><div><span class="new">error-handler.middleware.ts</span></div></div>
+            <div>app.ts</div><div>server.ts</div>
+          </div>
+          <div>.env</div><div>.gitignore</div><div>package.json</div><div>tsconfig.json</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p>You can create these folders and files in VS Code.</p>
+  <div class="callout"><strong>Why separate files?</strong><p>Imagine putting registration, login, JWT verification, email sending, and database queries into <code>server.ts</code>. That file would become difficult to understand, test, and maintain. Separating responsibilities lets us add features without turning the application into one large file.</p></div>
+</section>
+
+<!-- 3 -->
+<section class="step" id="p3" data-step="3">
+  <div class="step-head"><span class="badge">3</span><h2>Understand routes</h2></div>
+  <p>A route defines which code runs when a particular HTTP request arrives, for example <code>GET /api/users</code> or <code>POST /api/auth/login</code>. In Express we write routes using:</p>
+  <div class="code"><div class="cap"><span>Route methods</span></div><pre>app.get();
+app.post();
+app.put();
+app.patch();
+app.delete();</pre></div>
+  <p>A simple example:</p>
+  <div class="code"><div class="cap"><span>Example</span><button class="copy">Copy</button></div><pre>app.get("/api/users", (req, res) =&gt; {
+  res.json({
+    message: "Get all users"
+  });
+});</pre></div>
+  <ul class="list">
+    <li><code>app.get()</code> registers a GET route.</li>
+    <li><code>"/api/users"</code> is the URL path.</li>
+    <li><code>req</code> represents the incoming request.</li>
+    <li><code>res</code> lets us send the response.</li>
+  </ul>
+  <p style="margin-top:14px">But we don’t want to define every route directly inside <code>app.ts</code>. Instead we create dedicated route files.</p>
+
+  <h3>Step 3.1: Create src/routes/health.routes.ts</h3>
+  <div class="code"><div class="cap"><b>src/routes/health.routes.ts</b><button class="copy">Copy</button></div><pre>import { Router } from "express";
+
+import { getHealth } from "../controllers/health.controller.js";
+
+const router = Router();
+
+router.get("/", getHealth);
+
+export default router;</pre></div>
+  <div class="walk">
+    <details open><summary>Understand Router()</summary><div>
+      <div class="code"><pre>const router = Router();</pre></div>
+      <p>This creates a separate router that can manage related endpoints.</p>
+    </div></details>
+    <details open><summary>The route itself</summary><div>
+      <div class="code"><pre>router.get("/", getHealth);</pre></div>
+      <p>A GET request to the router’s root path executes the <code>getHealth</code> controller.</p>
+    </div></details>
+  </div>
+  <div class="callout ok"><strong>Why “/” and not “/api/health”?</strong><p>We connect this router to <code>/api/health</code> in <code>app.ts</code>, and Express combines the two paths: <code>/api/health</code> + <code>/</code> = <code>/api/health</code>. We can change the base path in one place without rewriting every route.</p></div>
+</section>
+
+<!-- 4 -->
+<section class="step" id="p4" data-step="4">
+  <div class="step-head"><span class="badge">4</span><h2>Understand controllers</h2></div>
+  <p>A controller handles the HTTP request and decides what response to send. For <code>GET /api/health</code> it might return:</p>
+  <div class="code"><div class="cap"><span>Response</span></div><pre>{
+  "success": true,
+  "message": "API is running"
+}</pre></div>
+  <p>A controller should generally handle HTTP-specific responsibilities rather than containing all our business logic.</p>
+
+  <h3>Step 4.1: Create src/controllers/health.controller.ts</h3>
+  <div class="code"><div class="cap"><b>src/controllers/health.controller.ts</b><button class="copy">Copy</button></div><pre>import type { Request, Response } from "express";
+
+export const getHealth = (
+  _req: Request,
+  res: Response
+): void =&gt; {
+  res.status(200).json({
+    success: true,
+    message: "Secure User Management API is running"
+  });
+};</pre></div>
+
+  <h3>Let’s understand the types</h3>
+  <div class="walk">
+    <details open><summary>Request</summary><div>
+      <div class="code"><pre>_req: Request</pre></div>
+      <p>This represents the incoming HTTP request. It can contain:</p>
+      <ul class="list"><li>URL parameters</li><li>Query parameters</li><li>Request headers</li><li>Request body</li></ul>
+    </div></details>
+    <details><summary>Response</summary><div>
+      <div class="code"><pre>res: Response</pre></div>
+      <p>This represents the HTTP response we send to the client.</p>
+      <div class="code"><pre>res.status(200).json({
+  success: true,
+  message: "API is running"
+});</pre></div>
+      <p>This sends a JSON response with HTTP status code 200.</p>
+    </div></details>
+    <details><summary>Why return void?</summary><div>
+      <div class="code"><pre>): void =&gt; {</pre></div>
+      <p>Our controller sends its response using <code>res.status().json()</code>. It doesn’t need to return a value to another function, so we specify <code>void</code>.</p>
+    </div></details>
+  </div>
+  <div class="callout warn"><strong>One important TypeScript lesson</strong><p>Types such as <code>Request</code> and <code>Response</code> help us during development. They do <em>not</em> validate incoming JSON at runtime. We’ll learn runtime validation with Zod later.</p></div>
+</section>
+
+<!-- 5 -->
+<section class="step" id="p5" data-step="5">
+  <div class="step-head"><span class="badge">5</span><h2>Understand services</h2></div>
+  <p>This is an important concept. A service contains the application’s business logic. As an example from a future feature, when a user registers we may need to:</p>
+  <ol class="steps">
+    <li>Check whether the email is already registered.</li>
+    <li>Hash the password.</li>
+    <li>Create the user in PostgreSQL.</li>
+    <li>Generate a verification token.</li>
+    <li>Save the token.</li>
+    <li>Arrange for a verification email to be sent.</li>
+  </ol>
+  <p>The controller should not implement all those operations itself. Instead it calls a registration service that coordinates the business logic. For now we use a simple example that returns sample users, so we learn the separation before introducing a database.</p>
+
+  <h3>Step 5.1: Create src/services/user.service.ts</h3>
+  <div class="code"><div class="cap"><b>src/services/user.service.ts</b><button class="copy">Copy</button></div><pre>export type User = {
+  id: number;
+  name: string;
+  email: string;
+};
+
+const users: User[] = [
+  {
+    id: 1,
+    name: "Birendra Singh",
+    email: "birendra@example.com"
+  },
+  {
+    id: 2,
+    name: "Rahul Sharma",
+    email: "rahul@example.com"
+  }
+];
+
+export const getAllUsers = (): User[] =&gt; {
+  return users;
+};</pre></div>
+
+  <h3>What are we learning here?</h3>
+  <div class="walk">
+    <details open><summary>First, a TypeScript type</summary><div>
+      <div class="code"><pre>export type User = {
+  id: number;
+  name: string;
+  email: string;
+};</pre></div>
+      <p>A <code>User</code> has three properties: <code>id</code> must be a number, <code>name</code> a string, and <code>email</code> a string.</p>
+    </div></details>
+    <details><summary>Then, sample data</summary><div>
+      <div class="code"><pre>const users: User[] = [
+  // ...
+];</pre></div>
+      <p>The <code>User[]</code> notation means an array of <code>User</code> objects.</p>
+    </div></details>
+    <details><summary>Finally, a function that returns the list</summary><div>
+      <div class="code"><pre>export const getAllUsers = (): User[] =&gt; {
+  return users;
+};</pre></div>
+    </div></details>
+  </div>
+  <div class="callout warn"><strong>Temporary data</strong><p>These are in-memory records. They disappear when the process restarts, and this isn’t our final database implementation. We replace it with PostgreSQL queries in a later phase.</p></div>
+</section>
+
+<!-- 6 -->
+<section class="step" id="p6" data-step="6">
+  <div class="step-head"><span class="badge">6</span><h2>Connect the controller to the service</h2></div>
+  <p>Now the controller calls the service. Create <code>src/controllers/user.controller.ts</code>:</p>
+  <div class="code"><div class="cap"><b>src/controllers/user.controller.ts</b><button class="copy">Copy</button></div><pre>import type { Request, Response } from "express";
+
+import { getAllUsers } from "../services/user.service.js";
+
+export const getUsers = (
+  _req: Request,
+  res: Response
+): void =&gt; {
+  const users = getAllUsers();
+
+  res.status(200).json({
+    success: true,
+    count: users.length,
+    data: users
+  });
+};</pre></div>
+  <h3>Let’s follow the execution</h3>
+  <ol class="steps">
+    <li><code>const users = getAllUsers();</code> The controller calls the service.</li>
+    <li>The service returns the user array.</li>
+    <li><code>res.status(200).json({ ... })</code> The controller sends the response to the client.</li>
+  </ol>
+  <div class="grid g2">
+    <div class="card"><h4>Route</h4><p>Determines which controller handles the request.</p></div>
+    <div class="card"><h4>Controller</h4><p>Handles the HTTP request and response.</p></div>
+    <div class="card"><h4>Service</h4><p>Provides the application’s business logic.</p></div>
+  </div>
+  <p style="margin-top:14px">When we introduce PostgreSQL, the controller won’t need to know how the users are stored. The service can obtain them from the database instead.</p>
+</section>
+
+<!-- 7 -->
+<section class="step" id="p7" data-step="7">
+  <div class="step-head"><span class="badge">7</span><h2>Create the user route</h2></div>
+  <div class="code"><div class="cap"><b>src/routes/user.routes.ts</b><button class="copy">Copy</button></div><pre>import { Router } from "express";
+
+import { getUsers } from "../controllers/user.controller.js";
+
+const router = Router();
+
+router.get("/", getUsers);
+
+export default router;</pre></div>
+  <p>This router has one endpoint, <code>GET /</code>. By itself that isn’t the complete API URL. We mount the router under <code>/api/users</code>, so the complete URL is <code>GET /api/users</code>.</p>
+  <p>Later we can add other routes to this file, such as retrieving a particular user or updating a profile.</p>
+</section>
+
+<!-- 8 -->
+<section class="step" id="p8" data-step="8">
+  <div class="step-head"><span class="badge">8</span><h2>Understand middleware</h2></div>
+  <p>Middleware is one of the most important concepts in Express. A middleware function runs during the request-response lifecycle. It can inspect a request, modify it, send a response, pass control to the next middleware, or forward an error.</p>
+  <p>Later we’ll create authentication middleware that checks whether a request contains a valid JWT. For now, a simple request logger.</p>
+
+  <h3>Step 8.1: Create request-logger middleware</h3>
+  <div class="code"><div class="cap"><b>src/middlewares/request-logger.middleware.ts</b><button class="copy">Copy</button></div><pre>import type { RequestHandler } from "express";
+
+export const requestLogger: RequestHandler = (
+  req,
+  _res,
+  next
+) =&gt; {
+  console.log(
+    `${req.method} ${req.originalUrl} - ${new Date().toISOString()}`
+  );
+
+  next();
+};</pre></div>
+  <div class="cols">
+    <div>
+      <div class="walk" style="margin-top:0">
+        <details open><summary>What is RequestHandler?</summary><div>
+          <div class="code"><pre>import type { RequestHandler } from "express";</pre></div>
+          <p>Express provides a <code>RequestHandler</code> type for ordinary middleware and route handlers. We use it so TypeScript can check that our middleware has the expected function signature.</p>
+        </div></details>
+        <details open><summary>What does next() do?</summary><div>
+          <div class="code"><pre>next();</pre></div>
+          <p>This tells Express to continue to the next applicable middleware or route handler. If you forget to call <code>next()</code> and don’t send a response, the request may remain pending.</p>
+        </div></details>
+      </div>
+    </div>
+    <div class="flow">
+      <div class="node">Incoming Request</div><div class="arrow"></div>
+      <div class="node hl">Request Logger</div><div class="arrow"><em>next()</em></div>
+      <div class="node">Health Route</div><div class="arrow"></div>
+      <div class="node">Controller</div><div class="arrow"></div>
+      <div class="node">Response</div>
+    </div>
+  </div>
+  <div class="callout warn"><strong>Middleware doesn’t always call next()</strong><p>Authentication middleware, for example, should stop the request and return <code>401 Unauthorized</code> when authentication fails.</p></div>
+</section>
+
+<!-- 9 -->
+<section class="step" id="p9" data-step="9">
+  <div class="step-head"><span class="badge">9</span><h2>Create 404 handling</h2></div>
+  <p>Suppose someone visits <code>GET /api/unknown</code>. No route matches that URL, and we want a proper JSON error instead of an unexpected response.</p>
+  <div class="code"><div class="cap"><b>src/middlewares/not-found.middleware.ts</b><button class="copy">Copy</button></div><pre>import type { RequestHandler } from "express";
+
+export const notFoundHandler: RequestHandler = (
+  req,
+  res,
+  _next
+) =&gt; {
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.originalUrl}`
+  });
+};</pre></div>
+  <p>We return <code>404 Not Found</code> because the requested endpoint doesn’t exist. Notice we don’t call <code>next()</code> after sending the response: we handled the request, so there’s no reason to continue through the middleware chain.</p>
+</section>
+
+<!-- 10 -->
+<section class="step" id="p10" data-step="10">
+  <div class="step-head"><span class="badge">10</span><h2>Create centralized error handling</h2></div>
+  <p>Imagine a controller tries to access PostgreSQL and the connection fails. We don’t want every controller to invent its own error-handling format. Instead we eventually route errors to a centralized error handler.</p>
+  <div class="code"><div class="cap"><b>src/middlewares/error-handler.middleware.ts</b><button class="copy">Copy</button></div><pre>import type { ErrorRequestHandler } from "express";
+
+export const errorHandler: ErrorRequestHandler = (
+  err,
+  _req,
+  res,
+  _next
+) =&gt; {
+  console.error(err);
+
+  if (res.headersSent) {
+    return;
+  }
+
+  res.status(500).json({
+    success: false,
+    message: "Internal server error"
+  });
+};</pre></div>
+
+  <div class="walk">
+    <details open><summary>Understand ErrorRequestHandler</summary><div>
+      <p>Express error-handling middleware has four parameters: <code>(err, req, res, next)</code>. The first is the error. Express recognizes error-handling middleware by this four-parameter signature.</p>
+    </div></details>
+    <details open><summary>Why return a generic error?</summary><div>
+      <p>If a database query fails because of an internal configuration problem, we don’t want to expose:</p>
+      <ul class="list"><li>Database credentials</li><li>Internal file paths</li><li>Stack traces</li><li>SQL statements containing sensitive information</li></ul>
+      <p style="margin-top:10px">We log the error on the server and return a generic message to the client. In production we’ll improve this with structured error logs, separate handling for expected errors, and logs that never expose secrets or sensitive user information.</p>
+    </div></details>
+    <details><summary>What does res.headersSent do?</summary><div>
+      <p>The check prevents us from trying to send a second response if headers have already been sent. In that situation, Express should be allowed to handle the error through its remaining error-handling mechanism.</p>
+    </div></details>
+  </div>
+  <div class="callout warn"><strong>Defining a handler isn’t enough</strong><p>Merely defining an error handler doesn’t automatically route every possible error to it. Express 5 automatically forwards rejected promises from async route handlers; in other situations we may need to use <code>next(err)</code>.</p></div>
+</section>
+
+<!-- 11 -->
+<section class="step" id="p11" data-step="11">
+  <div class="step-head"><span class="badge">11</span><h2>Update src/app.ts</h2></div>
+  <p>Now we have our routes and middleware. Let’s connect everything. Replace your existing <code>src/app.ts</code> with:</p>
+  <div class="code"><div class="cap"><b>src/app.ts</b><button class="copy">Copy</button></div><pre>import express from "express";
+
+import healthRouter from "./routes/health.routes.js";
+import userRouter from "./routes/user.routes.js";
+
+import { requestLogger } from "./middlewares/request-logger.middleware.js";
+import { notFoundHandler } from "./middlewares/not-found.middleware.js";
+import { errorHandler } from "./middlewares/error-handler.middleware.js";
+
+const app = express();
+
+// Parse incoming JSON
+app.use(express.json());
+
+// Log incoming requests
+app.use(requestLogger);
+
+// Register API routes
+app.use("/api/health", healthRouter);
+app.use("/api/users", userRouter);
+
+// Handle unknown routes
+app.use(notFoundHandler);
+
+// Handle errors
+app.use(errorHandler);
+
+export default app;</pre></div>
+  <div class="callout"><strong>Default exports</strong><p>Our route files use default exports, so they are imported without curly braces (<code>import healthRouter from ...</code>). Use this complete version rather than a partial one that imports <code>{ healthRouter }</code>.</p></div>
+
+  <h3>Let’s understand the order</h3>
+  <ol class="steps">
+    <li><strong>JSON middleware.</strong> <code>app.use(express.json());</code> parses incoming JSON bodies.</li>
+    <li><strong>Request logger.</strong> <code>app.use(requestLogger);</code> logs requests before they reach the routes.</li>
+    <li><strong>API routes.</strong> <code>app.use("/api/health", healthRouter);</code> and <code>app.use("/api/users", userRouter);</code> mount our two routers.</li>
+    <li><strong>404 handler.</strong> <code>app.use(notFoundHandler);</code> handles requests that reach this point without matching an earlier route.</li>
+    <li><strong>Error handler.</strong> <code>app.use(errorHandler);</code> handles errors forwarded through Express’s error-handling mechanism.</li>
+  </ol>
+  <div class="callout bad"><strong>Middleware order matters</strong><p>If we registered the 404 handler before our routes, it would respond before those routes had a chance to handle requests.</p></div>
+  <p>Our <code>server.ts</code> can remain unchanged.</p>
+</section>
+
+<!-- 12 -->
+<section class="step" id="p12" data-step="12">
+  <div class="step-head"><span class="badge">12</span><h2>Test your application</h2></div>
+  <p>Run the application and keep the terminal open:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>npm run dev</pre></div>
+
+  <div class="tests">
+    <div class="test">
+      <h4>Test 1: Health endpoint</h4>
+      <div class="browser"><div class="url"><span>http://localhost:3000/api/health</span><span class="st">200</span></div>
+<pre>{
+  "success": true,
+  "message": "Secure User Management API is running"
+}</pre></div>
+      <p style="margin:0">Your terminal should also display a request log similar to this (the timestamp will differ):</p>
+      <div class="termline">GET /api/health - 2026-10-25T...</div>
+    </div>
+
+    <div class="test">
+      <h4>Test 2: Get all users</h4>
+      <div class="browser"><div class="url"><span>http://localhost:3000/api/users</span><span class="st">200</span></div>
+<pre>{
+  "success": true,
+  "count": 2,
+  "data": [
+    {
+      "id": 1,
+      "name": "Birendra Singh",
+      "email": "birendra@example.com"
+    },
+    {
+      "id": 2,
+      "name": "Rahul Sharma",
+      "email": "rahul@example.com"
+    }
+  ]
+}</pre></div>
+      <p style="margin:0">If you see this, your route, controller, and service are working together.</p>
+    </div>
+
+    <div class="test">
+      <h4>Test 3: Check a nonexistent route</h4>
+      <div class="browser"><div class="url"><span>http://localhost:3000/api/unknown</span><span class="st e">404</span></div>
+<pre>{
+  "success": false,
+  "message": "Route not found: GET /api/unknown"
+}</pre></div>
+      <p style="margin:0">The status code should be 404. To check it, use the browser’s developer tools or a tool such as Postman.</p>
+    </div>
+
+    <div class="test">
+      <h4>Test 4: Build the TypeScript project</h4>
+      <p>Stop the development server if necessary, or open another terminal, and run:</p>
+      <div class="code term" style="margin:8px 0"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>npm run build</pre></div>
+      <p style="margin:0">You should see no TypeScript compilation errors.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 13 -->
+<section class="step" id="p13" data-step="13">
+  <div class="step-head"><span class="badge">13</span><h2>Use one standard response format</h2></div>
+  <p><em>Question: we send a response from every controller and middleware. Why can’t we use a standard format?</em> We should. Instead of writing <code>res.status().json()</code> repeatedly, we create a reusable response utility.</p>
+
+  <h3>The problem with our current code</h3>
+  <p>Our controllers and middleware each send a slightly different shape:</p>
+  <div class="grid g2">
+    <div class="cmp"><span class="tag bad">Health controller</span><div class="code"><pre>res.status(200).json({
+  success: true,
+  message: "Secure User Management API is running"
+});</pre></div></div>
+    <div class="cmp"><span class="tag bad">User controller</span><div class="code"><pre>res.status(200).json({
+  success: true,
+  count: users.length,
+  data: users
+});</pre></div></div>
+    <div class="cmp"><span class="tag bad">404 middleware</span><div class="code"><pre>res.status(404).json({
+  success: false,
+  message: `Route not found: ${req.method} ${req.originalUrl}`
+});</pre></div></div>
+  </div>
+  <p style="margin-top:14px">This works, but we repeat the same structure in multiple places. If we later change our API response format, we must update many files.</p>
+
+  <h3>Define one standard response format</h3>
+  <div class="grid g2">
+    <div class="cmp"><span class="tag ok">Success response</span><div class="code"><pre>{
+  "success": true,
+  "message": "Users fetched successfully",
+  "data": [
+    {
+      "id": 1,
+      "name": "Birendra Singh",
+      "email": "birendra@example.com"
+    }
+  ]
+}</pre></div></div>
+    <div class="cmp"><span class="tag bad">Error response</span><div class="code"><pre>{
+  "success": false,
+  "message": "Route not found",
+  "data": null
+}</pre></div></div>
+  </div>
+  <p style="margin-top:14px">We can include optional fields such as <code>count</code>, <code>errors</code>, or pagination metadata when needed. The important thing is that the core structure stays consistent.</p>
+
+  <h3>Create a reusable response utility</h3>
+  <div class="code"><div class="cap"><b>src/utils/api-response.ts</b><button class="copy">Copy</button></div><pre>import type { Response } from "express";
+
+type ApiResponse&lt;T&gt; = {
+  success: boolean;
+  message: string;
+  data: T | null;
+};
+
+export const sendResponse = &lt;T&gt;(
+  res: Response,
+  statusCode: number,
+  message: string,
+  data: T | null = null
+): void =&gt; {
+  const response: ApiResponse&lt;T&gt; = {
+    success: statusCode &lt; 400,
+    message,
+    data
+  };
+
+  res.status(statusCode).json(response);
+};</pre></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Part</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>ApiResponse&lt;T&gt;</code></td><td>Defines our standard response structure</td></tr>
+      <tr><td><code>&lt;T&gt;</code></td><td>A TypeScript generic: <code>data</code> can hold users, a single user, a string, or another type. When we pass an array of users, TypeScript infers the type of <code>data</code></td></tr>
+      <tr><td><code>statusCode</code></td><td>Lets us send 200, 201, 400, 404, or 500 depending on the situation</td></tr>
+      <tr><td><code>statusCode &lt; 400</code></td><td>Sets <code>success</code> to true for successful HTTP status codes and false for error codes</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Use it inside our controllers</h3>
+  <p>Update <code>src/controllers/user.controller.ts</code>:</p>
+  <div class="code"><div class="cap"><b>src/controllers/user.controller.ts</b><button class="copy">Copy</button></div><pre>import type { Request, Response } from "express";
+import { getAllUsers } from "../services/user.service.js";
+import { sendResponse } from "../utils/api-response.js";
+
+export const getUsers = (_req: Request, res: Response): void =&gt; {
+  const users = getAllUsers();
+
+  sendResponse(
+    res,
+    200,
+    "Users fetched successfully",
+    users
+  );
+};</pre></div>
+  <p>The controller no longer writes <code>res.status().json()</code> manually. The output becomes:</p>
+  <div class="browser" style="max-width:520px"><div class="url"><span>GET /api/users</span><span class="st">200</span></div>
+<pre>{
+  "success": true,
+  "message": "Users fetched successfully",
+  "data": [
+    {
+      "id": 1,
+      "name": "Birendra Singh",
+      "email": "birendra@example.com"
+    },
+    {
+      "id": 2,
+      "name": "Rahul Sharma",
+      "email": "rahul@example.com"
+    }
+  ]
+}</pre></div>
+  <div class="callout"><strong>The count field is gone</strong><p>If we want a count, we can add it as optional metadata or include it in the response data. We should make that design decision consistently.</p></div>
+
+  <h3>Can middleware use the same utility?</h3>
+  <p>Yes. Middleware that sends an HTTP response can use the same utility. Update <code>src/middlewares/not-found.middleware.ts</code>:</p>
+  <div class="code"><div class="cap"><b>src/middlewares/not-found.middleware.ts</b><button class="copy">Copy</button></div><pre>import type { RequestHandler } from "express";
+import { sendResponse } from "../utils/api-response.js";
+
+export const notFoundHandler: RequestHandler = (
+  req,
+  res,
+  _next
+) =&gt; {
+  sendResponse(
+    res,
+    404,
+    `Route not found: ${req.method} ${req.originalUrl}`
+  );
+};</pre></div>
+  <p>This returns:</p>
+  <div class="browser" style="max-width:520px"><div class="url"><span>GET /api/unknown</span><span class="st e">404</span></div>
+<pre>{
+  "success": false,
+  "message": "Route not found: GET /api/unknown",
+  "data": null
+}</pre></div>
+  <p>The same utility can be used by your error-handling middleware, login controller, registration controller, and admin routes.</p>
+  <div class="callout warn"><strong>Not every middleware should send a response</strong><p>Logging and authentication middleware may call <code>next()</code> to continue processing instead. Only middleware that needs to finish the request should send a response.</p></div>
+
+  <h3>One more improvement for our project</h3>
+  <p>As the project grows, keep these responsibilities separate:</p>
+  <div class="grid g2">
+    <div class="card"><h4>Controller</h4><p>Decides what response to send.</p></div>
+    <div class="card"><h4>Response utility</h4><p>Formats the response consistently.</p></div>
+    <div class="card"><h4>Client / frontend</h4><p>Receives predictable JSON.</p></div>
+  </div>
+  <p style="margin-top:14px">Later we can also create a standard error class and let the global error-handling middleware format errors centrally. That’s especially useful for validation errors, duplicate emails, invalid credentials, and database failures.</p>
+</section>
+
+<div class="finish">
+  <h2>Phase 2 complete?</h2>
+  <p>Your API now has routes, controllers, a service, request logging, 404 handling, centralized error handling, and one consistent response format.</p>
+  <a class="btn primary" href="phase-3.html">Continue to Phase 3: PostgreSQL and database design</a>
+</div>
+
+<nav class="pager" aria-label="Phase navigation">
+  <a class="btn" href="phase-1.html">Phase 1: Project setup</a>
+  <a class="btn" href="../index.html#roadmap">All phases</a>
+  <a class="btn primary" href="phase-3.html">Phase 3: PostgreSQL</a>
+</nav>
+
+</main>
+</div>
+
+<script>
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const KEY = 'um-api-p2-steps';
+const TOTAL = 13;
+let done = new Set();
+try{ done = new Set(JSON.parse(localStorage.getItem(KEY)||'[]')); }catch(e){}
+
+$$('.step').forEach(sec=>{
+  const n = +sec.dataset.step;
+  const label = document.createElement('label');
+  label.className = 'done-row';
+  label.innerHTML = `<input type="checkbox" ${done.has(n)?'checked':''}> I finished this section`;
+  label.querySelector('input').addEventListener('change', e=>{
+    e.target.checked ? done.add(n) : done.delete(n);
+    try{ localStorage.setItem(KEY, JSON.stringify([...done])); }catch(_){}
+    refresh();
+  });
+  sec.appendChild(label);
+});
+function refresh(){
+  $('#doneCount').textContent = done.size;
+  $('#doneBar').style.width = (done.size/TOTAL*100)+'%';
+  $$('.step').forEach(s=>s.classList.toggle('is-done', done.has(+s.dataset.step)));
+  $$('#toc a').forEach((a,i)=>a.classList.toggle('is-done', done.has(i+1)));
+}
+refresh();
+
+const root = document.documentElement;
+try{ const t = localStorage.getItem('um-api-theme'); if(t) root.setAttribute('data-theme', t); }catch(e){}
+$('#theme').addEventListener('click', ()=>{
+  const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  const next = cur==='dark'?'light':'dark';
+  root.setAttribute('data-theme', next);
+  try{ localStorage.setItem('um-api-theme', next); }catch(e){}
+});
+
+$$('.copy').forEach(b=>b.addEventListener('click',()=>{
+  const txt = b.closest('.code').querySelector('pre').innerText;
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(()=>{
+    b.textContent='Copied'; setTimeout(()=>b.textContent='Copy',1400);
+  }).catch(()=>{ b.textContent='Select and copy'; setTimeout(()=>b.textContent='Copy',1600); });
+}));
+
+const links = $$('#toc a');
+const io = new IntersectionObserver(es=>{
+  es.forEach(e=>{ if(e.isIntersecting){ links.forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+e.target.id)); } });
+},{rootMargin:'-30% 0px -60% 0px'});
+$$('.step').forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

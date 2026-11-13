@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 1: Project Setup and TypeScript Fundamentals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F3F5FA; --surface:#FFFFFF; --ink:#0F1A30; --ink-2:#4A566E; --line:#D8DEEA; --soft:#E9EDF6;
+  --signal:#2B50F0; --signal-ink:#FFFFFF; --code-bg:#0F1A30; --code-ink:#DCE4FF;
+  --g:#0E8F82;
+  --ok:#1B8348; --warn:#B97F00; --bad:#C42B67;
+  --radius:14px;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+  --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+  --g:#3CC9B8; --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+    --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+    --g:#3CC9B8; --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--signal)}
+:focus-visible{outline:3px solid var(--signal);outline-offset:3px;border-radius:6px}
+h1,h2,h3,h4{font-family:var(--display);line-height:1.12;margin:0;letter-spacing:-.02em}
+p{margin:0 0 1em;max-width:70ch}
+code{font-family:var(--mono);font-size:.86em;background:var(--soft);padding:.12em .4em;border-radius:6px}
+
+.topbar{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1280px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:12px}
+.brand{font-family:var(--display);font-weight:800;font-size:1.05rem;display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand-mark{width:26px;height:26px;border-radius:8px;background:var(--signal);display:grid;place-items:center}
+.brand-mark svg{width:16px;height:16px}
+.spacer{flex:1}
+.btn{font:inherit;font-weight:600;font-size:.92rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:10px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:border-color .15s}
+.btn:hover{border-color:var(--signal)}
+.btn.primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal)}
+
+.shell{max-width:1280px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:250px minmax(0,1fr);gap:56px}
+.side{position:sticky;top:84px;align-self:start;padding:28px 0;max-height:calc(100vh - 84px);overflow:auto}
+.side ol{list-style:none;margin:0;padding:0;border-left:2px solid var(--line)}
+.side a{display:flex;gap:8px;padding:6px 0 6px 16px;margin-left:-2px;border-left:2px solid transparent;color:var(--ink-2);text-decoration:none;font-size:.92rem;line-height:1.35}
+.side a:hover{color:var(--ink)}
+.side a.active{color:var(--ink);font-weight:600;border-left-color:var(--g)}
+.side a.is-done::after{content:"✓";margin-left:auto;color:var(--ok);font-weight:700}
+.progress-mini{margin-top:22px;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:.86rem;color:var(--ink-2)}
+.bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;width:0;background:var(--ok);border-radius:99px;transition:width .4s}
+
+main{padding:36px 0 96px;min-width:0}
+.hero h1{font-size:clamp(2.3rem,5.4vw,4rem);font-weight:800;max-width:16ch}
+.crumb{font-size:.92rem;color:var(--ink-2);margin-bottom:14px}
+.lead{font-size:1.15rem;color:var(--ink-2);max-width:62ch;margin-top:18px}
+.goal-card{margin-top:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;border-top:4px solid var(--g)}
+.card h4{font-size:1.05rem;margin-bottom:6px}
+.card p{margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0;padding:0;list-style:none}
+.chips li{background:var(--soft);padding:4px 12px;border-radius:99px;font-size:.87rem}
+
+.callout{border-left:4px solid var(--c,var(--signal));background:var(--surface);border-radius:0 var(--radius) var(--radius) 0;padding:16px 20px;margin:22px 0;max-width:78ch}
+.callout strong{display:block;margin-bottom:2px;font-family:var(--display);font-size:1.02rem}
+.callout p{margin:0}
+.callout.warn{--c:var(--warn)} .callout.bad{--c:var(--bad)} .callout.ok{--c:var(--ok)}
+
+/* step */
+.step{padding-top:52px}
+.step-head{display:flex;gap:16px;align-items:center;margin-bottom:16px}
+.badge{flex:none;min-width:58px;height:58px;padding:0 12px;border-radius:16px;background:var(--g);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:1.15rem}
+:root[data-theme="dark"] .badge{color:#0B1222}
+.step.is-done .badge{background:var(--ok)}
+.step-head h2{font-size:clamp(1.5rem,2.8vw,2.1rem)}
+.done-row{margin-top:20px;display:flex;align-items:center;gap:10px;color:var(--ink-2);font-size:.93rem;cursor:pointer;width:fit-content}
+.done-row input{width:18px;height:18px;accent-color:var(--ok)}
+.step h3{font-size:1.2rem;margin:26px 0 10px}
+.list{margin:8px 0 0;padding-left:22px}.list li{margin:4px 0}
+
+/* code */
+.code{background:var(--code-bg);color:var(--code-ink);border-radius:12px;margin:14px 0;max-width:80ch}
+.code pre{margin:0;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:.84rem;line-height:1.65}
+.code .cap{padding:9px 14px;border-bottom:1px solid #243050;font-size:.8rem;color:#8e9dc4;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.code .cap b{font-weight:500;color:#C9D6FF;font-family:var(--mono)}
+.copy{font:inherit;font-size:.78rem;background:transparent;color:#BFD0FF;border:1px solid #33446f;border-radius:7px;padding:3px 10px;cursor:pointer;flex:none}
+.copy:hover{border-color:#6F8BFF}
+.term pre::first-line{color:#fff}
+.term .cap::before{content:"";width:10px;height:10px;border-radius:50%;background:#ff6f9f;box-shadow:16px 0 #E8B53A,32px 0 #4CCB82;margin-right:34px;flex:none}
+.term .cap span{margin-right:auto}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);margin:16px 0;max-width:80ch}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:10px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--display);font-size:.95rem;background:var(--soft);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600;white-space:nowrap}
+
+/* tree */
+.tree{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 22px;font-family:var(--mono);font-size:.88rem;line-height:1.9;max-width:460px;margin:16px 0}
+.tree .d{font-weight:500;color:var(--signal)}
+.tree .ind{padding-left:22px;border-left:2px solid var(--line);margin-left:6px}
+.tree .f{color:var(--ink)}
+.tree .new{background:color-mix(in srgb,var(--g) 18%,transparent);border-radius:4px;padding:0 6px}
+
+/* walkthrough */
+.walk{display:grid;gap:12px;margin:16px 0;max-width:80ch}
+.walk details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px 18px}
+.walk summary{cursor:pointer;font-weight:600;padding:12px 0;font-family:var(--display);font-size:1.05rem}
+.walk details[open]{border-color:var(--g)}
+.walk details>div{padding-bottom:10px}
+
+/* result */
+.browser{border:1px solid var(--line);border-radius:12px;overflow:hidden;max-width:520px;margin:16px 0;background:var(--surface)}
+.browser .url{background:var(--soft);padding:8px 14px;font-family:var(--mono);font-size:.82rem;border-bottom:1px solid var(--line)}
+.browser pre{margin:0;padding:14px 16px;font-family:var(--mono);font-size:.85rem}
+
+.pager{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:64px;padding-top:26px;border-top:1px solid var(--line)}
+.finish{margin-top:56px;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:var(--radius);padding:24px}
+.finish h2{font-size:1.5rem;margin-bottom:6px}
+.finish p{margin-bottom:12px}
+
+@media(max-width:980px){.shell{grid-template-columns:1fr;gap:0}.side{display:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      User Management API
+    </a>
+    <span class="spacer"></span>
+    <a class="btn" href="../index.html#roadmap">All phases</a>
+    <a class="btn primary" href="phase-2.html">Next: Phase 2</a>
+    <button class="btn" id="theme" aria-label="Toggle light and dark theme">Theme</button>
+  </div>
+</header>
+
+<div class="shell">
+<aside class="side" aria-label="Steps in this phase">
+  <ol id="toc">
+    <li><a href="#s1-1">1.1 Check your software</a></li>
+    <li><a href="#s1-2">1.2 Create the project</a></li>
+    <li><a href="#s1-3">1.3 Configure TypeScript</a></li>
+    <li><a href="#s1-4">1.4 Update package.json</a></li>
+    <li><a href="#s1-5">1.5 Folder structure</a></li>
+    <li><a href="#s1-6">1.6 Create app.ts</a></li>
+    <li><a href="#s1-7">1.7 Create server.ts</a></li>
+    <li><a href="#s1-8">1.8 Create .env</a></li>
+    <li><a href="#s1-9">1.9 Create .gitignore</a></li>
+    <li><a href="#s1-10">1.10 Run the project</a></li>
+    <li><a href="#s1-11">1.11 First Git commit</a></li>
+  </ol>
+  <div class="progress-mini">
+    <div><span id="doneCount">0</span> of 11 steps done</div>
+    <div class="bar"><i id="doneBar"></i></div>
+  </div>
+</aside>
+
+<main>
+
+<section class="hero">
+  <div class="crumb"><a href="../index.html">Overview</a> / Phase 1</div>
+  <h1>Phase 1: Project setup and TypeScript fundamentals</h1>
+  <p class="lead">Now we begin the actual project: <strong>Secure User Management API</strong>.</p>
+  <p class="lead" style="margin-top:0">For now we won’t implement JWT, email verification, or admin permissions. First we create a clean project structure and make sure TypeScript and Express work correctly. If the basic setup is wrong, debugging later authentication and database problems becomes unnecessarily difficult.</p>
+
+  <div class="goal-card">
+    <div class="card"><h4>Goal</h4><p>Create a working Express server using TypeScript.</p></div>
+    <div class="card"><h4>Deliverable</h4><p>A working TypeScript API with a health-check endpoint.</p></div>
+  </div>
+  <ul class="chips">
+    <li>Node.js, TypeScript and Express together</li><li>npm project</li><li>tsconfig.json</li><li>Environment variables</li><li>Files and folders</li><li>Git</li>
+  </ul>
+</section>
+
+<!-- 1.1 -->
+<section class="step" id="s1-1" data-step="1">
+  <div class="step-head"><span class="badge">1.1</span><h2>Check your installed software</h2></div>
+  <p>Open your terminal in VS Code and execute:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>node -v
+npm -v
+git --version</pre></div>
+  <p>You should see version numbers for Node.js, npm, and Git.</p>
+  <div class="callout"><strong>PostgreSQL can wait</strong><p>If you haven’t installed PostgreSQL yet, we’ll install it before the database phase. You don’t need to configure it during this first step.</p></div>
+</section>
+
+<!-- 1.2 -->
+<section class="step" id="s1-2" data-step="2">
+  <div class="step-head"><span class="badge">1.2</span><h2>Create the project</h2></div>
+  <p>Run:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>mkdir secure-user-management-api
+cd secure-user-management-api</pre></div>
+  <p>Initialize npm:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>npm init -y</pre></div>
+  <p>This creates <code>package.json</code>, which records the project’s dependencies, metadata, and scripts.</p>
+  <p>Install the initial dependencies:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>npm install express dotenv</pre></div>
+  <p>Install TypeScript and development tools:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>npm install -D typescript tsx @types/node @types/express</pre></div>
+
+  <h3>Why do we need these packages?</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Package</th><th>Explanation</th></tr></thead>
+    <tbody>
+      <tr><td><code>express</code></td><td>Creates our HTTP server and API routes</td></tr>
+      <tr><td><code>dotenv</code></td><td>Loads environment variables from .env</td></tr>
+      <tr><td><code>typescript</code></td><td>Checks and compiles TypeScript</td></tr>
+      <tr><td><code>tsx</code></td><td>Runs TypeScript during development</td></tr>
+      <tr><td><code>@types/node</code></td><td>Provides TypeScript definitions for Node.js</td></tr>
+      <tr><td><code>@types/express</code></td><td>Provides TypeScript definitions for Express</td></tr>
+    </tbody>
+  </table></div>
+  <p>We’re keeping the initial dependencies small. PostgreSQL, JWT, password hashing, validation, and email packages come in the corresponding phases.</p>
+</section>
+
+<!-- 1.3 -->
+<section class="step" id="s1-3" data-step="3">
+  <div class="step-head"><span class="badge">1.3</span><h2>Configure TypeScript</h2></div>
+  <p>Run:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>npx tsc --init</pre></div>
+  <p>This creates a <code>tsconfig.json</code> file. Replace its contents with:</p>
+  <div class="code"><div class="cap"><b>tsconfig.json</b><button class="copy">Copy</button></div><pre>{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmitOnError": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}</pre></div>
+
+  <h3>Let’s understand the important settings</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Setting</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>target</code></td><td>JavaScript language version for the compiled output</td></tr>
+      <tr><td><code>module</code></td><td>Uses Node.js’s native ES module conventions</td></tr>
+      <tr><td><code>moduleResolution</code></td><td>Resolves imports according to Node.js module rules</td></tr>
+      <tr><td><code>rootDir</code></td><td>Location of our TypeScript source files</td></tr>
+      <tr><td><code>outDir</code></td><td>Location of compiled JavaScript</td></tr>
+      <tr><td><code>strict</code></td><td>Enables stricter type checking</td></tr>
+      <tr><td><code>esModuleInterop</code></td><td>Helps with compatibility when importing certain CommonJS packages</td></tr>
+      <tr><td><code>noEmitOnError</code></td><td>Prevents emitting output when TypeScript compilation fails</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn"><strong>Important</strong><p>Because we’re using <code>NodeNext</code>, we also configure the project for ES modules. That affects how we write imports and exports.</p></div>
+</section>
+
+<!-- 1.4 -->
+<section class="step" id="s1-4" data-step="4">
+  <div class="step-head"><span class="badge">1.4</span><h2>Update package.json</h2></div>
+  <p>Add <code>"type": "module"</code> and configure the scripts. Your <code>package.json</code> should contain these fields alongside the metadata and dependencies npm created:</p>
+  <div class="code"><div class="cap"><b>package.json</b><button class="copy">Copy</button></div><pre>{
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  }
+}</pre></div>
+  <div class="callout bad"><strong>Don’t replace the whole file</strong><p>Keep the existing fields and dependencies. Only update the <code>type</code> and <code>scripts</code> fields.</p></div>
+
+  <h3>We now have three commands</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>npm run dev</code></td><td>Starts the development server and watches for changes</td></tr>
+      <tr><td><code>npm run build</code></td><td>Compiles TypeScript into JavaScript</td></tr>
+      <tr><td><code>npm start</code></td><td>Runs the compiled application</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 1.5 -->
+<section class="step" id="s1-5" data-step="5">
+  <div class="step-head"><span class="badge">1.5</span><h2>Create the folder structure</h2></div>
+  <p>Create these files and folders. The highlighted ones are the ones you add yourself; the rest already exist from earlier steps.</p>
+  <div class="tree" role="img" aria-label="Project tree">
+    <div class="d">secure-user-management-api/</div>
+    <div class="ind">
+      <div class="d">src/</div>
+      <div class="ind"><div class="f"><span class="new">app.ts</span></div><div class="f"><span class="new">server.ts</span></div></div>
+      <div class="f"><span class="new">.env</span></div>
+      <div class="f"><span class="new">.gitignore</span></div>
+      <div class="f">package.json</div>
+      <div class="f">package-lock.json</div>
+      <div class="f">tsconfig.json</div>
+    </div>
+  </div>
+  <p>For now we use just two TypeScript files. As the application grows, we’ll add folders for routes, controllers, services, middleware, database configuration, validation schemas, and utilities.</p>
+  <div class="callout"><strong>Why not create every folder immediately?</strong><p>Because we want to understand why each layer exists before adding it. That makes the project easier to learn and maintain.</p></div>
+</section>
+
+<!-- 1.6 -->
+<section class="step" id="s1-6" data-step="6">
+  <div class="step-head"><span class="badge">1.6</span><h2>Create src/app.ts</h2></div>
+  <p>Add the following code:</p>
+  <div class="code"><div class="cap"><b>src/app.ts</b><button class="copy">Copy</button></div><pre>import express from "express";
+
+const app = express();
+
+app.use(express.json());
+
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Secure User Management API is running"
+  });
+});
+
+export default app;</pre></div>
+
+  <h3>Understand this code</h3>
+  <div class="walk">
+    <details open><summary>1. Import Express</summary><div>
+      <div class="code"><pre>import express from "express";</pre></div>
+      <p>This imports Express so we can create an API application.</p>
+    </div></details>
+    <details><summary>2. Create the application</summary><div>
+      <div class="code"><pre>const app = express();</pre></div>
+      <p>This creates our Express application.</p>
+    </div></details>
+    <details><summary>3. Add JSON middleware</summary><div>
+      <div class="code"><pre>app.use(express.json());</pre></div>
+      <p>This allows Express to parse incoming JSON request bodies. Without it, <code>req.body</code> generally won’t contain the parsed JSON data we expect.</p>
+    </div></details>
+    <details><summary>4. Create a health-check route</summary><div>
+      <div class="code"><pre>app.get("/api/health", (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Secure User Management API is running"
+  });
+});</pre></div>
+      <p>This endpoint lets us check whether the API is responding. The underscore in <code>_req</code> indicates that we’re not using the request parameter in this handler.</p>
+    </div></details>
+    <details><summary>5. Export the application</summary><div>
+      <div class="code"><pre>export default app;</pre></div>
+      <p>We export the application so another file can start the HTTP server.</p>
+    </div></details>
+  </div>
+  <div class="callout ok"><strong>Why separate app and server?</strong><p>This separation will become useful when we write automated tests.</p></div>
+</section>
+
+<!-- 1.7 -->
+<section class="step" id="s1-7" data-step="7">
+  <div class="step-head"><span class="badge">1.7</span><h2>Create src/server.ts</h2></div>
+  <p>Add:</p>
+  <div class="code"><div class="cap"><b>src/server.ts</b><button class="copy">Copy</button></div><pre>import "dotenv/config";
+
+import app from "./app.js";
+
+const PORT = Number(process.env.PORT) || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});</pre></div>
+  <p>Notice this import:</p>
+  <div class="code"><pre>import app from "./app.js";</pre></div>
+  <div class="callout warn"><strong>Yes, it’s .js, not .ts</strong><p>Even though the source file is named <code>app.ts</code>, the <code>.js</code> extension is correct for this NodeNext ES-module setup. TypeScript resolves the source file during development and emits <code>app.js</code> during compilation.</p></div>
+  <p>We’ll explore ES modules in more detail as we progress.</p>
+</section>
+
+<!-- 1.8 -->
+<section class="step" id="s1-8" data-step="8">
+  <div class="step-head"><span class="badge">1.8</span><h2>Create the .env file</h2></div>
+  <p>Add:</p>
+  <div class="code"><div class="cap"><b>.env</b><button class="copy">Copy</button></div><pre>PORT=3000
+NODE_ENV=development</pre></div>
+  <p>Environment variables let us configure the application without hardcoding every setting into our source code. Later we’ll add database connection settings and authentication secrets.</p>
+  <div class="callout bad"><strong>Never commit real secrets</strong><p>Don’t commit real passwords, JWT secrets, API keys, or email credentials to GitHub.</p></div>
+</section>
+
+<!-- 1.9 -->
+<section class="step" id="s1-9" data-step="9">
+  <div class="step-head"><span class="badge">1.9</span><h2>Create .gitignore</h2></div>
+  <p>Add:</p>
+  <div class="code"><div class="cap"><b>.gitignore</b><button class="copy">Copy</button></div><pre>node_modules/
+dist/
+.env
+coverage/</pre></div>
+  <p>This prevents Git from tracking installed dependencies, compiled output, local environment secrets, and test coverage artifacts.</p>
+  <div class="callout"><strong>Coming later</strong><p>We’ll commit a <code>.env.example</code> containing placeholder values instead of real secrets, so someone cloning the project knows which environment variables to configure.</p></div>
+</section>
+
+<!-- 1.10 -->
+<section class="step" id="s1-10" data-step="10">
+  <div class="step-head"><span class="badge">1.10</span><h2>Run the project</h2></div>
+  <p>In your terminal:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>npm run dev</pre></div>
+  <p>You should see:</p>
+  <div class="code term"><div class="cap"><span>Output</span></div><pre>Server is running on port 3000</pre></div>
+  <p>Open this endpoint in your browser, and you should get the expected response:</p>
+  <div class="browser">
+    <div class="url">http://localhost:3000/api/health</div>
+<pre>{
+  "success": true,
+  "message": "Secure User Management API is running"
+}</pre>
+  </div>
+  <p>Now test the TypeScript build:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>npm run build</pre></div>
+  <p>If everything is configured correctly, TypeScript compiles the files into the <code>dist</code> folder.</p>
+</section>
+
+<!-- 1.11 -->
+<section class="step" id="s1-11" data-step="11">
+  <div class="step-head"><span class="badge">1.11</span><h2>Your first Git commit</h2></div>
+  <p>Once the server and build both work, initialize Git:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>git init
+git add .
+git status</pre></div>
+  <div class="callout warn"><strong>Check before committing</strong><p>Make sure <code>.env</code> and <code>node_modules</code> are not included in the staged files.</p></div>
+  <p>Then commit:</p>
+  <div class="code term"><div class="cap"><span>Terminal</span><button class="copy">Copy</button></div><pre>git commit -m "Initial TypeScript Express API setup"</pre></div>
+  <p>If Git asks you to configure your identity, set your Git username and email before committing. We can connect the repository to GitHub after this initial setup works.</p>
+</section>
+
+<div class="finish">
+  <h2>Phase 1 complete?</h2>
+  <p>You should now have a TypeScript Express API that runs in development, builds to <code>dist</code>, answers on <code>/api/health</code>, and has its first commit.</p>
+  <a class="btn primary" href="phase-2.html">Continue to Phase 2: Express fundamentals</a>
+</div>
+
+<nav class="pager" aria-label="Phase navigation">
+  <a class="btn" href="../index.html#roadmap">Back to all phases</a>
+  <a class="btn primary" href="phase-2.html">Phase 2: Express fundamentals</a>
+</nav>
+
+</main>
+</div>
+
+<script>
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const KEY = 'um-api-p1-steps';
+let done = new Set();
+try{ done = new Set(JSON.parse(localStorage.getItem(KEY)||'[]')); }catch(e){}
+
+/* add a "mark as done" row to each step */
+$$('.step').forEach(sec=>{
+  const n = +sec.dataset.step;
+  const label = document.createElement('label');
+  label.className = 'done-row';
+  label.innerHTML = `<input type="checkbox" ${done.has(n)?'checked':''}> I finished this step`;
+  label.querySelector('input').addEventListener('change', e=>{
+    e.target.checked ? done.add(n) : done.delete(n);
+    try{ localStorage.setItem(KEY, JSON.stringify([...done])); }catch(_){}
+    refresh();
+  });
+  sec.appendChild(label);
+});
+function refresh(){
+  $('#doneCount').textContent = done.size;
+  $('#doneBar').style.width = (done.size/11*100)+'%';
+  $$('.step').forEach(s=>s.classList.toggle('is-done', done.has(+s.dataset.step)));
+  $$('#toc a').forEach((a,i)=>a.classList.toggle('is-done', done.has(i+1)));
+}
+refresh();
+
+/* theme */
+const root = document.documentElement;
+try{ const t = localStorage.getItem('um-api-theme'); if(t) root.setAttribute('data-theme', t); }catch(e){}
+$('#theme').addEventListener('click', ()=>{
+  const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  const next = cur==='dark'?'light':'dark';
+  root.setAttribute('data-theme', next);
+  try{ localStorage.setItem('um-api-theme', next); }catch(e){}
+});
+
+/* copy buttons */
+$$('.copy').forEach(b=>b.addEventListener('click',()=>{
+  const txt = b.closest('.code').querySelector('pre').innerText;
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(()=>{
+    b.textContent='Copied'; setTimeout(()=>b.textContent='Copy',1400);
+  }).catch(()=>{ b.textContent='Select and copy'; setTimeout(()=>b.textContent='Copy',1600); });
+}));
+
+/* active step in sidebar */
+const links = $$('#toc a');
+const io = new IntersectionObserver(es=>{
+  es.forEach(e=>{ if(e.isIntersecting){ links.forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+e.target.id)); } });
+},{rootMargin:'-30% 0px -60% 0px'});
+$$('.step').forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

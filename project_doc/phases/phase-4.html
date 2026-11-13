@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 4: User Registration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F3F5FA; --surface:#FFFFFF; --ink:#0F1A30; --ink-2:#4A566E; --line:#D8DEEA; --soft:#E9EDF6;
+  --signal:#2B50F0; --signal-ink:#FFFFFF; --code-bg:#0F1A30; --code-ink:#DCE4FF;
+  --g:#D8481F;
+  --ok:#1B8348; --warn:#B97F00; --bad:#C42B67;
+  --radius:14px;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+  --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+  --g:#FF8359; --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+    --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+    --g:#FF8359; --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--signal)}
+:focus-visible{outline:3px solid var(--signal);outline-offset:3px;border-radius:6px}
+h1,h2,h3,h4{font-family:var(--display);line-height:1.12;margin:0;letter-spacing:-.02em}
+p{margin:0 0 1em;max-width:70ch}
+code{font-family:var(--mono);font-size:.86em;background:var(--soft);padding:.12em .4em;border-radius:6px}
+
+.topbar{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1280px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:800;font-size:1.05rem;display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand-mark{width:26px;height:26px;border-radius:8px;background:var(--signal);display:grid;place-items:center}
+.brand-mark svg{width:16px;height:16px}
+.spacer{flex:1}
+.btn{font:inherit;font-weight:600;font-size:.92rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:10px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:border-color .15s}
+.btn:hover{border-color:var(--signal)}
+.btn.primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal)}
+
+.shell{max-width:1280px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:260px minmax(0,1fr);gap:56px}
+.side{position:sticky;top:84px;align-self:start;padding:28px 0;max-height:calc(100vh - 84px);overflow:auto}
+.side ol{list-style:none;margin:0;padding:0;border-left:2px solid var(--line)}
+.side a{display:flex;gap:8px;padding:6px 0 6px 16px;margin-left:-2px;border-left:2px solid transparent;color:var(--ink-2);text-decoration:none;font-size:.92rem;line-height:1.35}
+.side a:hover{color:var(--ink)}
+.side a.active{color:var(--ink);font-weight:600;border-left-color:var(--g)}
+.side a.is-done::after{content:"✓";margin-left:auto;color:var(--ok);font-weight:700}
+.progress-mini{margin-top:22px;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:.86rem;color:var(--ink-2)}
+.bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;width:0;background:var(--ok);border-radius:99px;transition:width .4s}
+
+main{padding:36px 0 96px;min-width:0}
+.hero h1{font-size:clamp(2.2rem,5vw,3.8rem);font-weight:800;max-width:14ch}
+.crumb{font-size:.92rem;color:var(--ink-2);margin-bottom:14px}
+.lead{font-size:1.15rem;color:var(--ink-2);max-width:62ch;margin-top:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;border-top:4px solid var(--g)}
+.card h4{font-size:1.05rem;margin-bottom:6px}
+.card p{margin:0}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.learn{margin:16px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px}
+.learn li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start;font-size:.97rem}
+.learn li::before{content:"✓";color:var(--ok);font-weight:800}
+
+.callout{border-left:4px solid var(--c,var(--signal));background:var(--surface);border-radius:0 var(--radius) var(--radius) 0;padding:16px 20px;margin:22px 0;max-width:78ch}
+.callout strong{display:block;margin-bottom:2px;font-family:var(--display);font-size:1.02rem}
+.callout p{margin:0}
+.callout.warn{--c:var(--warn)} .callout.bad{--c:var(--bad)} .callout.ok{--c:var(--ok)}
+
+.step{padding-top:52px}
+.step-head{display:flex;gap:16px;align-items:center;margin-bottom:16px}
+.badge{flex:none;min-width:58px;height:58px;padding:0 12px;border-radius:16px;background:var(--g);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:1.1rem}
+:root[data-theme="dark"] .badge{color:#0B1222}
+.step.is-done .badge{background:var(--ok)}
+.step-head h2{font-size:clamp(1.5rem,2.8vw,2.1rem)}
+.done-row{margin-top:20px;display:flex;align-items:center;gap:10px;color:var(--ink-2);font-size:.93rem;cursor:pointer;width:fit-content}
+.done-row input{width:18px;height:18px;accent-color:var(--ok)}
+.step h3{font-size:1.2rem;margin:30px 0 10px}
+.list{margin:8px 0 0;padding-left:22px}.list li{margin:4px 0}
+
+.code{background:var(--code-bg);color:var(--code-ink);border-radius:12px;margin:14px 0;max-width:80ch}
+.code pre{margin:0;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:.84rem;line-height:1.65}
+.code .cap{padding:9px 14px;border-bottom:1px solid #243050;font-size:.8rem;color:#8e9dc4;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.code .cap b{font-weight:500;color:#C9D6FF;font-family:var(--mono)}
+.copy{font:inherit;font-size:.78rem;background:transparent;color:#BFD0FF;border:1px solid #33446f;border-radius:7px;padding:3px 10px;cursor:pointer;flex:none}
+.copy:hover{border-color:#6F8BFF}
+.term .cap::before{content:"";width:10px;height:10px;border-radius:50%;background:#ff6f9f;box-shadow:16px 0 #E8B53A,32px 0 #4CCB82;margin-right:34px;flex:none}
+.term .cap span{margin-right:auto}
+.out{border-left:4px solid var(--ok)}
+.out .cap{color:#7fe0a8}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);margin:16px 0;max-width:84ch}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:10px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--display);font-size:.95rem;background:var(--soft);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600;white-space:nowrap}
+
+.tree{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 22px;font-family:var(--mono);font-size:.85rem;line-height:1.85;max-width:420px;margin:12px 0}
+.tree .d{font-weight:500;color:var(--signal)}
+.tree .ind{padding-left:22px;border-left:2px solid var(--line);margin-left:6px}
+.tree .new{background:color-mix(in srgb,var(--g) 18%,transparent);border-radius:4px;padding:0 6px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+
+.flow{display:flex;flex-direction:column;margin:14px 0;max-width:400px}
+.node{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-weight:500;font-size:.95rem}
+.node small{display:block;font-weight:400;color:var(--ink-2);font-size:.82rem}
+.node.hl{border-color:var(--g);background:color-mix(in srgb,var(--g) 10%,var(--surface))}
+.node.good{border-color:var(--ok)}
+.node.stop{border-color:var(--bad)}
+.arrow{width:2px;height:14px;background:var(--line);margin-left:24px;position:relative}
+.arrow::after{content:"";position:absolute;bottom:-1px;left:-4px;border:5px solid transparent;border-top:7px solid var(--line);border-bottom:0}
+.arrow em{position:absolute;left:14px;top:-1px;font-style:normal;font-size:.78rem;color:var(--ink-2);font-family:var(--mono);white-space:nowrap}
+.branch{margin-left:24px;border-left:2px solid var(--line);padding:6px 0 6px 16px;display:flex;flex-direction:column;gap:8px}
+.branch .node{font-size:.9rem}
+
+.walk{display:grid;gap:12px;margin:16px 0;max-width:80ch}
+.walk details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px 18px}
+.walk summary{cursor:pointer;font-weight:600;padding:12px 0;font-family:var(--display);font-size:1.05rem}
+.walk details[open]{border-color:var(--g)}
+.walk details>div{padding-bottom:10px}
+.walk .code{margin:8px 0}
+
+.steps{counter-reset:s;list-style:none;margin:16px 0;padding:0;max-width:70ch}
+.steps li{counter-increment:s;position:relative;padding:8px 0 8px 46px;border-bottom:1px dashed var(--line)}
+.steps li:last-child{border:0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:7px;width:30px;height:30px;border-radius:50%;background:var(--g);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.85rem;font-family:var(--display)}
+:root[data-theme="dark"] .steps li::before{color:#0B1222}
+
+.browser{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0;background:var(--surface);max-width:580px}
+.browser .url{background:var(--soft);padding:7px 14px;font-family:var(--mono);font-size:.8rem;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.browser pre{margin:0;padding:12px 16px;font-family:var(--mono);font-size:.82rem;overflow-x:auto}
+.st{font-family:var(--mono);font-size:.76rem;font-weight:500;padding:1px 9px;border-radius:6px;color:#fff;background:var(--ok)}
+.st.w{background:var(--warn)}
+.st.e{background:var(--bad)}
+:root[data-theme="dark"] .st{color:#0B1222}
+.m{font-family:var(--mono);font-size:.78rem;font-weight:500;padding:3px 9px;border-radius:6px;color:#fff;background:var(--signal);display:inline-block}
+:root[data-theme="dark"] .m{color:#0B1222}
+.endpoint{display:inline-flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-family:var(--mono);font-size:.95rem;margin:4px 0 14px}
+
+.tests{display:grid;gap:16px;margin:16px 0;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.test{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px}
+.test h4{font-size:1.05rem;margin-bottom:6px}
+.test .browser{margin-bottom:0}
+.test p{margin:0 0 8px}
+
+.finish{margin-top:56px;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:var(--radius);padding:24px}
+.finish h2{font-size:1.5rem;margin-bottom:6px}
+.finish p{margin-bottom:12px}
+.pager{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:40px;padding-top:26px;border-top:1px solid var(--line)}
+
+@media(max-width:980px){.shell{grid-template-columns:1fr;gap:0}.side{display:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      User Management API
+    </a>
+    <span class="spacer"></span>
+    <a class="btn" href="phase-3.html">Phase 3</a>
+    <a class="btn" href="../index.html#roadmap">All phases</a>
+    <a class="btn primary" href="phase-5.html">Next: Phase 5</a>
+    <button class="btn" id="theme" aria-label="Toggle light and dark theme">Theme</button>
+  </div>
+</header>
+
+<div class="shell">
+<aside class="side" aria-label="Steps in this phase">
+  <ol id="toc">
+    <li><a href="#s0">The plan</a></li>
+    <li><a href="#s1">4.1 Validation schema</a></li>
+    <li><a href="#s2">4.2 Validation middleware</a></li>
+    <li><a href="#s3">4.3 Authentication route</a></li>
+    <li><a href="#s4">4.4 Registration service</a></li>
+    <li><a href="#s5">4.5 Central error handler</a></li>
+    <li><a href="#s6">4.6 Duplicate emails</a></li>
+    <li><a href="#s7">4.7 Controller and tests</a></li>
+  </ol>
+  <div class="progress-mini">
+    <div><span id="doneCount">0</span> of 8 steps done</div>
+    <div class="bar"><i id="doneBar"></i></div>
+  </div>
+</aside>
+
+<main>
+
+<section class="hero">
+  <div class="crumb"><a href="../index.html">Overview</a> / Phase 4</div>
+  <h1>Phase 4: User registration</h1>
+  <p class="lead">We build an API that lets a new user register with their name, email, and password, with validation, secure password hashing, and proper duplicate-email handling.</p>
+  <div class="grid g2" style="margin-top:26px">
+    <div class="card"><h4>Goal</h4><p>Register users securely.</p></div>
+    <div class="card"><h4>Deliverable</h4><p>Users can register and their information is stored securely.</p></div>
+  </div>
+</section>
+
+<!-- PLAN -->
+<section class="step" id="s0" data-step="1">
+  <div class="step-head"><span class="badge">Plan</span><h2>What are we going to build?</h2></div>
+  <p>Expected endpoint:</p>
+  <div class="endpoint"><span class="m">POST</span>/api/auth/register</div>
+
+  <div class="cols">
+    <div>
+      <p><strong>Example request</strong></p>
+      <div class="code"><div class="cap"><span>Request body</span><button class="copy">Copy</button></div><pre>{
+  "name": "Birendra Singh",
+  "email": "birendra@example.com",
+  "password": "MySecurePassword@123"
+}</pre></div>
+    </div>
+    <div>
+      <p><strong>Expected successful response</strong></p>
+      <div class="code out"><div class="cap"><span>Response</span></div><pre>{
+  "success": true,
+  "message": "Registration successful. Please verify your email.",
+  "data": {
+    "id": "3",
+    "name": "Birendra Singh",
+    "email": "birendra@example.com",
+    "is_email_verified": false
+  }
+}</pre></div>
+    </div>
+  </div>
+  <div class="callout bad"><strong>Never return secrets</strong><p>Notice that we never return the password or the password hash.</p></div>
+
+  <h3>The registration workflow</h3>
+  <p>Before writing code, understand the flow:</p>
+  <div class="flow" aria-label="Registration workflow">
+    <div class="node">Client sends registration request</div><div class="arrow"></div>
+    <div class="node hl">Validation middleware<small>Validate name, email and password using Zod</small></div><div class="arrow"></div>
+    <div class="node">Auth controller</div><div class="arrow"></div>
+    <div class="node hl">Auth service<small>Check duplicate email and hash password</small></div><div class="arrow"></div>
+    <div class="node">PostgreSQL<small>Insert new user into users table</small></div><div class="arrow"></div>
+    <div class="node good">Standard API response</div>
+  </div>
+  <p>Email verification will be implemented in Step 5.</p>
+
+  <h3>Packages required</h3>
+  <p>We’ll install two packages first. Open your VS Code project terminal and run:</p>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm install zod argon2</pre></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Package</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>zod</code></td><td>Validates incoming request data</td></tr>
+      <tr><td><code>argon2</code></td><td>Hashes passwords securely</td></tr>
+    </tbody>
+  </table></div>
+
+  <h4 style="margin:22px 0 8px;font-size:1.1rem">Why Argon2?</h4>
+  <p>We should never store passwords directly in PostgreSQL.</p>
+  <div class="tablewrap" style="max-width:560px"><table>
+    <thead><tr><th>Original password</th><th>Argon2id password hashing</th></tr></thead>
+    <tbody><tr><td><code>MySecurePassword@123</code></td><td>A long encoded hash stored in PostgreSQL, not the original password</td></tr></tbody>
+  </table></div>
+  <div class="callout ok"><strong>Two tools, two jobs</strong><p>Zod and Argon2 solve different problems: Zod validates input, while Argon2 protects stored passwords.</p></div>
+</section>
+
+<!-- 4.1 -->
+<section class="step" id="s1" data-step="2">
+  <div class="step-head"><span class="badge">4.1</span><h2>Create the registration validation schema</h2></div>
+  <p>Before accepting registration data, we must validate it. For example, we should reject:</p>
+  <ul class="list"><li>Empty names</li><li>Invalid email addresses</li><li>Passwords that don’t meet our requirements</li><li>Missing request fields</li></ul>
+  <p style="margin-top:12px">We validate before the controller or database receives the data.</p>
+
+  <h3>1. Create the validators folder</h3>
+  <div class="tree" role="img" aria-label="validators folder"><div class="d">src/</div><div class="ind"><div class="d">validators/</div><div class="ind"><div><span class="new">auth.validator.ts</span></div></div></div></div>
+
+  <h3>2. Create the registration schema</h3>
+  <div class="code"><div class="cap"><b>src/validators/auth.validator.ts</b><button class="copy">Copy</button></div><pre>import { z } from "zod";
+
+export const registerSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "Name must contain at least 2 characters")
+    .max(100, "Name cannot exceed 100 characters"),
+
+  email: z
+    .string()
+    .trim()
+    .email("Please enter a valid email address")
+    .max(255, "Email cannot exceed 255 characters")
+    .transform((value) =&gt; value.toLowerCase()),
+
+  password: z
+    .string()
+    .min(12, "Password must contain at least 12 characters")
+    .max(128, "Password cannot exceed 128 characters")
+});</pre></div>
+
+  <h3>3. Understand each validation</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Validation</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>z.object()</code></td><td>Defines an object schema</td></tr>
+      <tr><td><code>z.string()</code></td><td>Accepts only strings</td></tr>
+      <tr><td><code>.trim()</code></td><td>Removes leading and trailing spaces</td></tr>
+      <tr><td><code>.min(2)</code></td><td>Requires at least 2 characters</td></tr>
+      <tr><td><code>.max(100)</code></td><td>Allows at most 100 characters</td></tr>
+      <tr><td><code>.email()</code></td><td>Checks email format</td></tr>
+      <tr><td><code>.transform()</code></td><td>Converts email to lowercase</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><strong>Password rules</strong><p>For passwords, we require at least 12 characters and limit the maximum to 128. We’re not forcing special characters or uppercase letters. A sufficiently long, unique password or passphrase is a better goal than arbitrary character rules.</p></div>
+
+  <h3>4. Understand safeParse()</h3>
+  <p>Zod provides two important methods:</p>
+  <div class="grid g2">
+    <div class="card"><h4><code>parse()</code></h4><p>Validates data and throws an error if validation fails.</p></div>
+    <div class="card"><h4><code>safeParse()</code></h4><p>Validates data and returns a success or failure result without throwing a validation error.</p></div>
+  </div>
+  <p style="margin-top:14px">Let’s test our schema. Create a temporary file:</p>
+  <div class="code"><div class="cap"><b>src/validators/test-auth-validator.ts</b><button class="copy">Copy</button></div><pre>import { registerSchema } from "./auth.validator.js";
+
+const validUser = {
+  name: "Birendra Singh",
+  email: "BIRENDRA@EXAMPLE.COM",
+  password: "MySecurePassword@123"
+};
+
+const result = registerSchema.safeParse(validUser);
+
+if (result.success) {
+  console.log("Validation successful!");
+  console.log(result.data);
+} else {
+  console.log("Validation failed!");
+  console.log(result.error.issues);
+}</pre></div>
+  <p>Run:</p>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npx tsx src/validators/test-auth-validator.ts</pre></div>
+  <div class="code out"><div class="cap"><span>Expected output</span></div><pre>Validation successful!
+{
+  name: 'Birendra Singh',
+  email: 'birendra@example.com',
+  password: 'MySecurePassword@123'
+}</pre></div>
+  <p>Notice that Zod automatically converts the email to lowercase.</p>
+
+  <h3>5. Test invalid data</h3>
+  <p>Change the test data temporarily, then run the test again:</p>
+  <div class="code"><div class="cap"><span>Temporary test data</span><button class="copy">Copy</button></div><pre>const validUser = {
+  name: "B",
+  email: "invalid-email",
+  password: "123"
+};</pre></div>
+  <p>You should receive validation errors for the name, email, and password.</p>
+</section>
+
+<!-- 4.2 -->
+<section class="step" id="s2" data-step="3">
+  <div class="step-head"><span class="badge">4.2</span><h2>Create reusable validation middleware</h2></div>
+  <h3>1. Why do we need validation middleware?</h3>
+  <p>Imagine we have three APIs that all receive data from the client and need validation:</p>
+  <ul class="list"><li><code>POST /api/auth/register</code></li><li><code>POST /api/auth/login</code></li><li><code>PATCH /api/users/me</code></li></ul>
+  <p style="margin-top:12px">We could validate each request inside its controller, but that would duplicate code. Instead we create one reusable middleware. The request flow will look like this:</p>
+  <div class="flow" aria-label="Validation flow">
+    <div class="node">Client request</div><div class="arrow"></div>
+    <div class="node hl">Validation middleware</div>
+    <div class="branch">
+      <div class="node good">Valid data → Controller: continue request</div>
+      <div class="node stop">Invalid data → 400 response: stop request</div>
+    </div>
+  </div>
+  <p>The controller will receive validated data only.</p>
+
+  <h3>2. Create the middleware file</h3>
+  <div class="code"><div class="cap"><b>src/middlewares/validate.middleware.ts</b><button class="copy">Copy</button></div><pre>import type { RequestHandler } from "express";
+import type { ZodType } from "zod";
+import { sendResponse } from "../utils/api-response.js";
+
+export const validate = (schema: ZodType): RequestHandler =&gt; {
+  return (req, res, next) =&gt; {
+    const result = schema.safeParse(req.body);
+
+    if (!result.success) {
+      const errors = result.error.issues.map((issue) =&gt; ({
+        field: issue.path.join("."),
+        message: issue.message
+      }));
+
+      sendResponse(
+        res,
+        400,
+        "Validation failed",
+        errors
+      );
+
+      return;
+    }
+
+    req.body = result.data;
+
+    next();
+  };
+};</pre></div>
+
+  <h3>3. Understand the code</h3>
+  <div class="walk">
+    <details open><summary>A. Why do we pass schema as a parameter?</summary><div>
+      <div class="code"><pre>export const validate = (schema: ZodType): RequestHandler =&gt; {</pre></div>
+      <p>This makes our middleware reusable. For registration we pass <code>registerSchema</code>; for login we’ll pass a future <code>loginSchema</code>. The same middleware works with both.</p>
+    </div></details>
+    <details><summary>B. Why use safeParse()?</summary><div>
+      <div class="code"><pre>const result = schema.safeParse(req.body);</pre></div>
+      <p>It checks the incoming request body against our Zod schema.</p>
+    </div></details>
+    <details><summary>C. What happens when validation fails?</summary><div>
+      <div class="code"><pre>if (!result.success) {</pre></div>
+      <p>We extract the validation errors and return a standard HTTP 400 response. Example:</p>
+      <div class="code"><pre>{
+  "success": false,
+  "message": "Validation failed",
+  "data": [
+    {
+      "field": "email",
+      "message": "Please enter a valid email address"
+    }
+  ]
+}</pre></div>
+    </div></details>
+    <details><summary>D. Why do we assign result.data to req.body?</summary><div>
+      <div class="code"><pre>req.body = result.data;</pre></div>
+      <p>This is important! Remember that we used <code>.trim()</code> and <code>.transform()</code> in our Zod schema. For example, a client sends:</p>
+      <div class="code"><pre>{
+  "name": "  Birendra Singh  ",
+  "email": "BIRENDRA@EXAMPLE.COM"
+}</pre></div>
+      <p>After validation, the controller receives:</p>
+      <div class="code out"><pre>{
+  "name": "Birendra Singh",
+  "email": "birendra@example.com"
+}</pre></div>
+      <p>So the controller gets the cleaned and validated data.</p>
+    </div></details>
+    <details><summary>E. Why call next()?</summary><div>
+      <div class="code"><pre>next();</pre></div>
+      <p>It tells Express that validation succeeded and it can continue to the next middleware or controller.</p>
+    </div></details>
+  </div>
+
+  <h3>4. Verify your implementation</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build</pre></div>
+  <p>This checks whether TypeScript can compile your new middleware. We haven’t connected it to the registration route yet. We’ll do that in the next step.</p>
+</section>
+
+<!-- 4.3 -->
+<section class="step" id="s3" data-step="4">
+  <div class="step-head"><span class="badge">4.3</span><h2>Create the authentication route</h2></div>
+  <p>Now we connect the registration validation schema to an API endpoint:</p>
+  <div class="endpoint"><span class="m">POST</span>/api/auth/register</div>
+
+  <h3>1. Create the route file</h3>
+  <div class="code"><div class="cap"><b>src/routes/auth.routes.ts</b><button class="copy">Copy</button></div><pre>import { Router } from "express";
+import { validate } from "../middlewares/validate.middleware.js";
+import { registerSchema } from "../validators/auth.validator.js";
+
+const router = Router();
+
+router.post("/register", validate(registerSchema), (_req, res) =&gt; {
+  res.status(200).json({
+    success: true,
+    message: "Validation successful"
+  });
+});
+
+export default router;</pre></div>
+  <div class="callout warn"><strong>Temporary callback</strong><p>For now, this is a temporary controller callback. We’re only testing whether the validation middleware works through an actual API route. We’ll replace it with the real registration controller shortly.</p></div>
+
+  <h3>2. Update src/app.ts</h3>
+  <p>Import the new router:</p>
+  <div class="code"><div class="cap"><b>src/app.ts</b><button class="copy">Copy</button></div><pre>import authRouter from "./routes/auth.routes.js";</pre></div>
+  <p>Mount it with your other routes:</p>
+  <div class="code"><div class="cap"><b>src/app.ts</b><button class="copy">Copy</button></div><pre>app.use("/api/auth", authRouter);</pre></div>
+
+  <h3>3. Test the API</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run dev</pre></div>
+  <p>Send a POST request to <code>http://localhost:3000/api/auth/register</code> with valid JSON:</p>
+  <div class="cols">
+    <div class="code"><div class="cap"><span>Request body</span><button class="copy">Copy</button></div><pre>{
+  "name": "Birendra Singh",
+  "email": "BIRENDRA@EXAMPLE.COM",
+  "password": "MySecurePassword@123"
+}</pre></div>
+    <div class="browser" style="margin:14px 0"><div class="url"><span>Expected response</span><span class="st">200</span></div>
+<pre>{
+  "success": true,
+  "message": "Validation successful"
+}</pre></div>
+  </div>
+  <p>Now test with an invalid email or a password shorter than 12 characters. You should receive a 400 response with validation errors.</p>
+  <div class="callout"><strong>Why are we doing this?</strong><p>Before connecting PostgreSQL and password hashing, we want to confirm that invalid registration data cannot reach our registration logic.</p></div>
+</section>
+
+<!-- 4.4 -->
+<section class="step" id="s4" data-step="5">
+  <div class="step-head"><span class="badge">4.4</span><h2>Create the registration service</h2></div>
+  <p>Now we implement the actual registration logic:</p>
+  <ol class="steps">
+    <li>Receive validated user details.</li>
+    <li>Hash the password using Argon2id.</li>
+    <li>Insert the user into PostgreSQL.</li>
+    <li>Return the newly created user’s public information.</li>
+  </ol>
+
+  <h3>First, one important security concept</h3>
+  <p>We must never store a user’s original password in PostgreSQL.</p>
+  <div class="tablewrap" style="max-width:480px"><table>
+    <thead><tr><th>Field</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Original password</td><td><code>MySecurePassword@123</code></td></tr>
+      <tr><td>Stored password</td><td>Argon2id hash</td></tr>
+    </tbody>
+  </table></div>
+  <p>Even if someone accesses the database, they won’t see the original password. We also use parameterized SQL queries to protect against SQL injection.</p>
+
+  <h3>Create src/services/auth.service.ts</h3>
+  <div class="code"><div class="cap"><b>src/services/auth.service.ts</b><button class="copy">Copy</button></div><pre>import argon2 from "argon2";
+import pool from "../config/db.js";
+
+type RegisterInput = {
+  name: string;
+  email: string;
+  password: string;
+};
+
+export const registerUser = async (userData: RegisterInput) =&gt; {
+  const { name, email, password } = userData;
+
+  // Step 1: Hash the password
+  const passwordHash = await argon2.hash(password, {
+    type: argon2.argon2id
+  });
+
+  // Step 2: Insert user into PostgreSQL
+  const result = await pool.query(
+    `INSERT INTO users (name, email, password_hash)
+     VALUES ($1, $2, $3)
+     RETURNING id, name, email, is_email_verified, is_active, created_at`,
+    [name, email, passwordHash]
+  );
+
+  // Step 3: Return public user information
+  return result.rows[0];
+};</pre></div>
+
+  <h3>Understand the important parts</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Part</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>argon2.hash()</code></td><td>Generates a secure password hash</td></tr>
+      <tr><td><code>argon2id</code></td><td>The recommended Argon2 variant for password hashing</td></tr>
+      <tr><td><code>$1, $2, $3</code></td><td>PostgreSQL query parameters</td></tr>
+      <tr><td><code>RETURNING</code></td><td>Gives us the newly inserted record</td></tr>
+      <tr><td>Selected columns</td><td>We deliberately exclude <code>password_hash</code> from the returned data</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn"><strong>Don’t connect it to the controller yet</strong><p>We do that in a later step, after handling duplicate email errors properly.</p></div>
+</section>
+
+<!-- 4.5 -->
+<section class="step" id="s5" data-step="6">
+  <div class="step-head"><span class="badge">4.5</span><h2>Create a centralized application error handler</h2></div>
+  <p>Before connecting registration to the controller, we need to handle duplicate email addresses properly. If someone registers using an email that already exists, the API should return:</p>
+  <div class="grid g2">
+    <div class="card"><h4>HTTP status</h4><p><code>409 Conflict</code></p></div>
+    <div class="card"><h4>Message</h4><p>Email address is already registered</p></div>
+  </div>
+  <p style="margin-top:14px">Currently, our error middleware returns 500 for every error. We’ll improve that.</p>
+
+  <h3>1. Create src/utils/app-error.ts</h3>
+  <div class="code"><div class="cap"><b>src/utils/app-error.ts</b><button class="copy">Copy</button></div><pre>export class AppError extends Error {
+  constructor(
+    public statusCode: number,
+    message: string
+  ) {
+    super(message);
+
+    this.name = "AppError";
+  }
+}</pre></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Part</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>extends Error</code></td><td>Our class inherits JavaScript’s built-in Error functionality</td></tr>
+      <tr><td><code>statusCode</code></td><td>Stores the HTTP status code</td></tr>
+      <tr><td><code>message</code></td><td>Stores the error description</td></tr>
+      <tr><td><code>super(message)</code></td><td>Passes the message to the parent Error class</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>2. Update the error handler</h3>
+  <p>Replace the existing code in <code>src/middlewares/error-handler.middleware.ts</code> with:</p>
+  <div class="code"><div class="cap"><b>src/middlewares/error-handler.middleware.ts</b><button class="copy">Copy</button></div><pre>import type { ErrorRequestHandler } from "express";
+import { AppError } from "../utils/app-error.js";
+import { sendResponse } from "../utils/api-response.js";
+
+export const errorHandler: ErrorRequestHandler = (
+  err,
+  _req,
+  res,
+  _next
+) =&gt; {
+  console.error(err);
+
+  if (res.headersSent) return;
+
+  if (err instanceof AppError) {
+    sendResponse(res, err.statusCode, err.message);
+    return;
+  }
+
+  sendResponse(res, 500, "Internal server error");
+};</pre></div>
+
+  <h3>3. Understand the flow</h3>
+  <div class="flow" aria-label="Error flow">
+    <div class="node">Registration service<small>An error occurs</small></div><div class="arrow"></div>
+    <div class="node">next(error)<small>Passes error to Express</small></div><div class="arrow"></div>
+    <div class="node hl">Global error handler<small>Checks whether it’s an AppError</small></div>
+    <div class="branch">
+      <div class="node good">Known error → 409 · Email already registered</div>
+      <div class="node stop">Unknown error → 500 · Internal server error</div>
+    </div>
+  </div>
+
+  <h3>4. Test</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build</pre></div>
+  <p>At this stage we’re only preparing centralized error handling. We haven’t connected duplicate-email detection yet.</p>
+</section>
+
+<!-- 4.6 -->
+<section class="step" id="s6" data-step="7">
+  <div class="step-head"><span class="badge">4.6</span><h2>Handle duplicate email registration</h2></div>
+  <p>PostgreSQL already protects your email column with a unique index:</p>
+  <div class="code"><div class="cap"><span>SQL (from Phase 3)</span></div><pre>CREATE UNIQUE INDEX users_email_unique_idx
+ON users (LOWER(email));</pre></div>
+  <p>This is important because two users might try to register with the same email at almost exactly the same time. PostgreSQL returns error code <code>23505</code> when a unique constraint is violated. We catch that error and convert it into our custom <code>AppError</code>.</p>
+
+  <h3>1. Update src/services/auth.service.ts</h3>
+  <p>Replace your existing registration function with:</p>
+  <div class="code"><div class="cap"><b>src/services/auth.service.ts</b><button class="copy">Copy</button></div><pre>import argon2 from "argon2";
+import pool from "../config/db.js";
+import { AppError } from "../utils/app-error.js";
+
+type RegisterInput = {
+  name: string;
+  email: string;
+  password: string;
+};
+
+export const registerUser = async (userData: RegisterInput) =&gt; {
+  const { name, email, password } = userData;
+
+  const passwordHash = await argon2.hash(password, {
+    type: argon2.argon2id
+  });
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO users (name, email, password_hash)
+       VALUES ($1, $2, $3)
+       RETURNING id, name, email, is_email_verified, is_active, created_at`,
+      [name, email, passwordHash]
+    );
+
+    return result.rows[0];
+  } catch (error: unknown) {
+    if (
+      typeof error === "object" &amp;&amp;
+      error !== null &amp;&amp;
+      "code" in error &amp;&amp;
+      error.code === "23505"
+    ) {
+      throw new AppError(409, "Email address is already registered");
+    }
+
+    throw error;
+  }
+};</pre></div>
+
+  <h3>2. Understand the important part</h3>
+  <div class="walk">
+    <details open><summary>catch (error: unknown)</summary><div><p>We use <code>unknown</code> because TypeScript should not assume every caught value is an Error object.</p></div></details>
+    <details open><summary>error.code === "23505"</summary><div><p>This checks PostgreSQL’s unique-violation error code.</p></div></details>
+    <details open><summary>throw new AppError(409, ...)</summary><div><p>This passes our custom error to the global error handler.</p></div></details>
+  </div>
+  <div class="callout warn"><strong>One important detail</strong><p>We hash the password before attempting the insert. A duplicate registration may therefore use some extra CPU for hashing, but the database remains the final authority on uniqueness. We can optimize this later if needed.</p></div>
+
+  <h3>Test</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build</pre></div>
+  <p>Excellent! Step 4.6 is complete. Your registration service now:</p>
+  <ul class="learn" style="margin-top:10px">
+    <li>Hashes passwords using Argon2id</li>
+    <li>Inserts users using parameterized SQL</li>
+    <li>Handles duplicate emails with HTTP 409</li>
+    <li>Passes unexpected errors to the global error handler</li>
+  </ul>
+  <p style="margin-top:14px">Now let’s connect everything.</p>
+</section>
+
+<!-- 4.7 -->
+<section class="step" id="s7" data-step="8">
+  <div class="step-head"><span class="badge">4.7</span><h2>Create the registration controller</h2></div>
+  <p>The controller receives the validated request, calls the registration service, and returns a standardized API response.</p>
+
+  <h3>1. Create src/controllers/auth.controller.ts</h3>
+  <div class="code"><div class="cap"><b>src/controllers/auth.controller.ts</b><button class="copy">Copy</button></div><pre>import type { Request, Response, NextFunction } from "express";
+import { registerUser } from "../services/auth.service.js";
+import { sendResponse } from "../utils/api-response.js";
+
+export const register = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise&lt;void&gt; =&gt; {
+  try {
+    const user = await registerUser(req.body);
+
+    sendResponse(
+      res,
+      201,
+      "Registration successful. Please verify your email.",
+      user
+    );
+  } catch (error) {
+    next(error);
+  }
+};</pre></div>
+  <div class="callout"><strong>Why 201?</strong><p>HTTP <code>201 Created</code> indicates that a new resource has been successfully created.</p></div>
+
+  <h3>2. Update src/routes/auth.routes.ts</h3>
+  <p>Replace the temporary callback with the real controller:</p>
+  <div class="code"><div class="cap"><b>src/routes/auth.routes.ts</b><button class="copy">Copy</button></div><pre>import { Router } from "express";
+import { validate } from "../middlewares/validate.middleware.js";
+import { registerSchema } from "../validators/auth.validator.js";
+import { register } from "../controllers/auth.controller.js";
+
+const router = Router();
+
+router.post("/register", validate(registerSchema), register);
+
+export default router;</pre></div>
+  <p>Now the request flow is:</p>
+  <div class="flow" aria-label="Final request flow">
+    <div class="node"><span class="m" style="margin-right:8px">POST</span>/api/auth/register</div><div class="arrow"></div>
+    <div class="node hl">Validation middleware (Zod)</div><div class="arrow"></div>
+    <div class="node">Auth controller</div><div class="arrow"></div>
+    <div class="node">Auth service</div><div class="arrow"></div>
+    <div class="node">Argon2id password hashing</div><div class="arrow"></div>
+    <div class="node">PostgreSQL INSERT</div><div class="arrow"></div>
+    <div class="node good">Standardized API response</div>
+  </div>
+
+  <h3>3. Test the complete registration API</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build
+npm run dev</pre></div>
+  <p>Send a POST request to <code>http://localhost:3000/api/auth/register</code>. Use a new email address that isn’t already in your database:</p>
+  <div class="cols">
+    <div class="code"><div class="cap"><span>Request body</span><button class="copy">Copy</button></div><pre>{
+  "name": "Test User",
+  "email": "testuser@example.com",
+  "password": "MySecurePassword@123"
+}</pre></div>
+    <div class="browser" style="margin:14px 0"><div class="url"><span>Expected response</span><span class="st">201</span></div>
+<pre>{
+  "success": true,
+  "message": "Registration successful. Please verify your email.",
+  "data": {
+    "id": "3",
+    "name": "Test User",
+    "email": "testuser@example.com",
+    "is_email_verified": false,
+    "is_active": true,
+    "created_at": "..."
+  }
+}</pre></div>
+  </div>
+  <p>The ID and timestamp will depend on your database.</p>
+
+  <h3>Test these three cases</h3>
+  <div class="tests">
+    <div class="test">
+      <h4>1. New email</h4>
+      <div class="browser"><div class="url"><span>Result</span><span class="st">201 Created</span></div><pre>User is created</pre></div>
+    </div>
+    <div class="test">
+      <h4>2. Same email again</h4>
+      <div class="browser"><div class="url"><span>Result</span><span class="st w">409 Conflict</span></div><pre>Email address is already registered</pre></div>
+    </div>
+    <div class="test">
+      <h4>3. Invalid email or short password</h4>
+      <div class="browser"><div class="url"><span>Result</span><span class="st e">400 Bad Request</span></div><pre>Validation failed</pre></div>
+    </div>
+  </div>
+  <div class="callout bad"><strong>Also verify this</strong><p><code>password_hash</code> is never returned in the API response.</p></div>
+</section>
+
+<div class="finish">
+  <h2>Phase 4 complete?</h2>
+  <p>Once these tests pass, we move to the next part: email verification using secure, time-limited tokens.</p>
+  <a class="btn primary" href="phase-5.html">Continue to Phase 5: Email verification</a>
+</div>
+
+<nav class="pager" aria-label="Phase navigation">
+  <a class="btn" href="phase-3.html">Phase 3: PostgreSQL</a>
+  <a class="btn" href="../index.html#roadmap">All phases</a>
+  <a class="btn primary" href="phase-5.html">Phase 5: Email verification</a>
+</nav>
+
+</main>
+</div>
+
+<script>
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const KEY = 'um-api-p4-steps';
+const TOTAL = 8;
+let done = new Set();
+try{ done = new Set(JSON.parse(localStorage.getItem(KEY)||'[]')); }catch(e){}
+
+$$('.step').forEach(sec=>{
+  const n = +sec.dataset.step;
+  const label = document.createElement('label');
+  label.className = 'done-row';
+  label.innerHTML = `<input type="checkbox" ${done.has(n)?'checked':''}> I finished this step`;
+  label.querySelector('input').addEventListener('change', e=>{
+    e.target.checked ? done.add(n) : done.delete(n);
+    try{ localStorage.setItem(KEY, JSON.stringify([...done])); }catch(_){}
+    refresh();
+  });
+  sec.appendChild(label);
+});
+function refresh(){
+  $('#doneCount').textContent = done.size;
+  $('#doneBar').style.width = (done.size/TOTAL*100)+'%';
+  $$('.step').forEach(s=>s.classList.toggle('is-done', done.has(+s.dataset.step)));
+  $$('#toc a').forEach((a,i)=>a.classList.toggle('is-done', done.has(i+1)));
+}
+refresh();
+
+const root = document.documentElement;
+try{ const t = localStorage.getItem('um-api-theme'); if(t) root.setAttribute('data-theme', t); }catch(e){}
+$('#theme').addEventListener('click', ()=>{
+  const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  const next = cur==='dark'?'light':'dark';
+  root.setAttribute('data-theme', next);
+  try{ localStorage.setItem('um-api-theme', next); }catch(e){}
+});
+
+$$('.copy').forEach(b=>b.addEventListener('click',()=>{
+  const txt = b.closest('.code').querySelector('pre').innerText;
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(()=>{
+    b.textContent='Copied'; setTimeout(()=>b.textContent='Copy',1400);
+  }).catch(()=>{ b.textContent='Select and copy'; setTimeout(()=>b.textContent='Copy',1600); });
+}));
+
+const links = $$('#toc a');
+const io = new IntersectionObserver(es=>{
+  es.forEach(e=>{ if(e.isIntersecting){ links.forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+e.target.id)); } });
+},{rootMargin:'-30% 0px -60% 0px'});
+$$('.step').forEach(s=>io.observe(s));
+</script>
+</body>
+</html>
