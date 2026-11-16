@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 5: Email Verification</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F3F5FA; --surface:#FFFFFF; --ink:#0F1A30; --ink-2:#4A566E; --line:#D8DEEA; --soft:#E9EDF6;
+  --signal:#2B50F0; --signal-ink:#FFFFFF; --code-bg:#0F1A30; --code-ink:#DCE4FF;
+  --g:#D8481F;
+  --ok:#1B8348; --warn:#B97F00; --bad:#C42B67;
+  --radius:14px;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+  --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+  --g:#FF8359; --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0B1222; --surface:#131C33; --ink:#E8EDFB; --ink-2:#9FACC8; --line:#243050; --soft:#1A2542;
+    --signal:#6F8BFF; --signal-ink:#0B1222; --code-bg:#070D1B; --code-ink:#CBD7FF;
+    --g:#FF8359; --ok:#4CCB82; --warn:#E8B53A; --bad:#FF6F9F;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--signal)}
+:focus-visible{outline:3px solid var(--signal);outline-offset:3px;border-radius:6px}
+h1,h2,h3,h4{font-family:var(--display);line-height:1.12;margin:0;letter-spacing:-.02em}
+p{margin:0 0 1em;max-width:70ch}
+code{font-family:var(--mono);font-size:.86em;background:var(--soft);padding:.12em .4em;border-radius:6px}
+
+.topbar{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1280px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:800;font-size:1.05rem;display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand-mark{width:26px;height:26px;border-radius:8px;background:var(--signal);display:grid;place-items:center}
+.brand-mark svg{width:16px;height:16px}
+.spacer{flex:1}
+.btn{font:inherit;font-weight:600;font-size:.92rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:10px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:border-color .15s}
+.btn:hover{border-color:var(--signal)}
+.btn.primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal)}
+
+.shell{max-width:1280px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:270px minmax(0,1fr);gap:56px}
+.side{position:sticky;top:84px;align-self:start;padding:28px 0;max-height:calc(100vh - 84px);overflow:auto}
+.side ol{list-style:none;margin:0;padding:0;border-left:2px solid var(--line)}
+.side a{display:flex;gap:8px;padding:6px 0 6px 16px;margin-left:-2px;border-left:2px solid transparent;color:var(--ink-2);text-decoration:none;font-size:.92rem;line-height:1.35}
+.side a:hover{color:var(--ink)}
+.side a.active{color:var(--ink);font-weight:600;border-left-color:var(--g)}
+.side a.is-done::after{content:"✓";margin-left:auto;color:var(--ok);font-weight:700}
+.progress-mini{margin-top:22px;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:.86rem;color:var(--ink-2)}
+.bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;width:0;background:var(--ok);border-radius:99px;transition:width .4s}
+
+main{padding:36px 0 96px;min-width:0}
+.hero h1{font-size:clamp(2.2rem,5vw,3.8rem);font-weight:800;max-width:14ch}
+.crumb{font-size:.92rem;color:var(--ink-2);margin-bottom:14px}
+.lead{font-size:1.15rem;color:var(--ink-2);max-width:62ch;margin-top:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;border-top:4px solid var(--g)}
+.card h4{font-size:1.05rem;margin-bottom:6px}
+.card p{margin:0}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.learn{margin:16px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px}
+.learn li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start;font-size:.97rem}
+.learn li::before{content:"✓";color:var(--ok);font-weight:800}
+.learn.todo li::before{content:"→";color:var(--g)}
+
+.callout{border-left:4px solid var(--c,var(--signal));background:var(--surface);border-radius:0 var(--radius) var(--radius) 0;padding:16px 20px;margin:22px 0;max-width:78ch}
+.callout strong{display:block;margin-bottom:2px;font-family:var(--display);font-size:1.02rem}
+.callout p{margin:0}
+.callout.warn{--c:var(--warn)} .callout.bad{--c:var(--bad)} .callout.ok{--c:var(--ok)}
+
+.step{padding-top:52px}
+.step-head{display:flex;gap:16px;align-items:center;margin-bottom:16px}
+.badge{flex:none;min-width:58px;height:58px;padding:0 12px;border-radius:16px;background:var(--g);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:1.1rem}
+:root[data-theme="dark"] .badge{color:#0B1222}
+.step.is-done .badge{background:var(--ok)}
+.step-head h2{font-size:clamp(1.5rem,2.8vw,2.1rem)}
+.done-row{margin-top:20px;display:flex;align-items:center;gap:10px;color:var(--ink-2);font-size:.93rem;cursor:pointer;width:fit-content}
+.done-row input{width:18px;height:18px;accent-color:var(--ok)}
+.step h3{font-size:1.2rem;margin:30px 0 10px}
+.list{margin:8px 0 0;padding-left:22px}.list li{margin:4px 0}
+
+.code{background:var(--code-bg);color:var(--code-ink);border-radius:12px;margin:14px 0;max-width:84ch}
+.code pre{margin:0;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:.84rem;line-height:1.65}
+.code .cap{padding:9px 14px;border-bottom:1px solid #243050;font-size:.8rem;color:#8e9dc4;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.code .cap b{font-weight:500;color:#C9D6FF;font-family:var(--mono)}
+.copy{font:inherit;font-size:.78rem;background:transparent;color:#BFD0FF;border:1px solid #33446f;border-radius:7px;padding:3px 10px;cursor:pointer;flex:none}
+.copy:hover{border-color:#6F8BFF}
+.term .cap::before{content:"";width:10px;height:10px;border-radius:50%;background:#ff6f9f;box-shadow:16px 0 #E8B53A,32px 0 #4CCB82;margin-right:34px;flex:none}
+.term .cap span{margin-right:auto}
+.out{border-left:4px solid var(--ok)}
+.out .cap{color:#7fe0a8}
+.old{border-left:4px solid var(--bad)}
+.old .cap{color:#ff9fbf}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);margin:16px 0;max-width:86ch}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:10px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--display);font-size:.95rem;background:var(--soft);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600;white-space:nowrap}
+
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+
+.flow{display:flex;flex-direction:column;margin:14px 0;max-width:420px}
+.node{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-weight:500;font-size:.95rem}
+.node small{display:block;font-weight:400;color:var(--ink-2);font-size:.82rem}
+.node.hl{border-color:var(--g);background:color-mix(in srgb,var(--g) 10%,var(--surface))}
+.node.good{border-color:var(--ok)}
+.node.stop{border-color:var(--bad)}
+.arrow{width:2px;height:14px;background:var(--line);margin-left:24px;position:relative}
+.arrow::after{content:"";position:absolute;bottom:-1px;left:-4px;border:5px solid transparent;border-top:7px solid var(--line);border-bottom:0}
+.arrow em{position:absolute;left:14px;top:-1px;font-style:normal;font-size:.78rem;color:var(--ink-2);font-family:var(--mono);white-space:nowrap}
+.branch{margin-left:24px;border-left:2px solid var(--line);padding:6px 0 6px 16px;display:flex;flex-direction:column;gap:8px}
+.branch .node{font-size:.9rem}
+
+.walk{display:grid;gap:12px;margin:16px 0;max-width:84ch}
+.walk details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px 18px}
+.walk summary{cursor:pointer;font-weight:600;padding:12px 0;font-family:var(--display);font-size:1.05rem}
+.walk details[open]{border-color:var(--g)}
+.walk details>div{padding-bottom:10px}
+.walk .code{margin:8px 0}
+
+.steps{counter-reset:s;list-style:none;margin:16px 0;padding:0;max-width:72ch}
+.steps li{counter-increment:s;position:relative;padding:8px 0 8px 46px;border-bottom:1px dashed var(--line)}
+.steps li:last-child{border:0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:7px;width:30px;height:30px;border-radius:50%;background:var(--g);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.85rem;font-family:var(--display)}
+:root[data-theme="dark"] .steps li::before{color:#0B1222}
+
+.browser{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0;background:var(--surface);max-width:580px}
+.browser .url{background:var(--soft);padding:7px 14px;font-family:var(--mono);font-size:.8rem;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.browser pre{margin:0;padding:12px 16px;font-family:var(--mono);font-size:.82rem;overflow-x:auto}
+.st{font-family:var(--mono);font-size:.76rem;font-weight:500;padding:1px 9px;border-radius:6px;color:#fff;background:var(--ok)}
+:root[data-theme="dark"] .st{color:#0B1222}
+.m{font-family:var(--mono);font-size:.78rem;font-weight:500;padding:3px 9px;border-radius:6px;color:#fff;background:var(--signal);display:inline-block}
+:root[data-theme="dark"] .m{color:#0B1222}
+.endpoint{display:inline-flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-family:var(--mono);font-size:.92rem;margin:4px 0 14px;max-width:100%;overflow-x:auto}
+
+.tag{display:inline-block;font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:99px;margin-bottom:6px}
+.tag.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.tag.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+
+.anat{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+.anat div{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--g);border-radius:10px;padding:8px 12px;font-family:var(--mono);font-size:.88rem}
+.anat div small{display:block;font-family:var(--body);color:var(--ink-2);font-size:.78rem;margin-bottom:2px}
+
+.finish{margin-top:56px;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:var(--radius);padding:24px}
+.finish h2{font-size:1.5rem;margin-bottom:6px}
+.finish p{margin-bottom:12px}
+.pager{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:40px;padding-top:26px;border-top:1px solid var(--line)}
+
+@media(max-width:980px){.shell{grid-template-columns:1fr;gap:0}.side{display:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      User Management API
+    </a>
+    <span class="spacer"></span>
+    <a class="btn" href="phase-4.html">Phase 4</a>
+    <a class="btn" href="../index.html#roadmap">All phases</a>
+    <a class="btn primary" href="phase-6.html">Next: Phase 6</a>
+    <button class="btn" id="theme" aria-label="Toggle light and dark theme">Theme</button>
+  </div>
+</header>
+
+<div class="shell">
+<aside class="side" aria-label="Steps in this phase">
+  <ol id="toc">
+    <li><a href="#s0">The flow</a></li>
+    <li><a href="#s1">5.1 Token table</a></li>
+    <li><a href="#s2">5.2 Generate a token</a></li>
+    <li><a href="#s3">5.3 Store the token</a></li>
+    <li><a href="#s4">5.4 Connect to registration</a></li>
+    <li><a href="#s5">5.5 Transactions</a></li>
+    <li><a href="#s6">5.6 Nodemailer setup</a></li>
+    <li><a href="#s7">5.7 Email service</a></li>
+    <li><a href="#s8">5.8 Send on register</a></li>
+    <li><a href="#s9">5.9 Verification service</a></li>
+    <li><a href="#s10">5.10 Verify endpoint</a></li>
+    <li><a href="#s11">5.11 Test with Postman</a></li>
+  </ol>
+  <div class="progress-mini">
+    <div><span id="doneCount">0</span> of 12 steps done</div>
+    <div class="bar"><i id="doneBar"></i></div>
+  </div>
+</aside>
+
+<main>
+
+<section class="hero">
+  <div class="crumb"><a href="../index.html">Overview</a> / Phase 5</div>
+  <h1>Phase 5: Email verification</h1>
+  <p class="lead">We add two-step email verification: secure, time-limited tokens, stored as hashes, delivered by email, and verified through a dedicated endpoint.</p>
+  <div class="grid g2" style="margin-top:26px">
+    <div class="card"><h4>Goal</h4><p>Verify email addresses before allowing normal login.</p></div>
+    <div class="card"><h4>Deliverable</h4><p>Users can register and verify their email.</p></div>
+  </div>
+</section>
+
+<!-- FLOW -->
+<section class="step" id="s0" data-step="1">
+  <div class="step-head"><span class="badge">Flow</span><h2>How verification will work</h2></div>
+  <p>The registration flow will eventually work like this:</p>
+  <ol class="steps">
+    <li>User submits registration details.</li>
+    <li>API creates an unverified user.</li>
+    <li>API generates a secure verification token.</li>
+    <li>API sends a verification email.</li>
+    <li>User clicks the verification link.</li>
+    <li>API verifies the token and activates email verification.</li>
+  </ol>
+  <p>We’ll first design the database table <code>email_verification_tokens</code> before writing the email-sending logic.</p>
+</section>
+
+<!-- 5.1 -->
+<section class="step" id="s1" data-step="2">
+  <div class="step-head"><span class="badge">5.1</span><h2>Design the email verification database table</h2></div>
+  <p>Before sending verification emails, we need a secure way to store and validate verification tokens.</p>
+
+  <h3>1. Understand the email verification flow</h3>
+  <div class="flow" aria-label="Verification flow">
+    <div class="node">User registers<small>Email verification status = false</small></div><div class="arrow"></div>
+    <div class="node hl">Generate secure random token</div><div class="arrow"></div>
+    <div class="node hl">Store token hash in PostgreSQL<small>Never store the original token</small></div><div class="arrow"></div>
+    <div class="node">Send verification email</div><div class="arrow"></div>
+    <div class="node">User clicks verification link</div><div class="arrow"></div>
+    <div class="node good">Verify token and update user<small>Email verified</small></div>
+  </div>
+
+  <h3>2. Create the database table</h3>
+  <p>Open PostgreSQL and connect to your project database:</p>
+  <div class="code term"><div class="cap"><span>psql</span><button class="copy">Copy</button></div><pre>\c secure_user_management</pre></div>
+  <p>Execute this SQL:</p>
+  <div class="code"><div class="cap"><b>SQL</b><button class="copy">Copy</button></div><pre>CREATE TABLE email_verification_tokens (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+  user_id BIGINT NOT NULL,
+
+  token_hash TEXT NOT NULL,
+
+  expires_at TIMESTAMPTZ NOT NULL,
+
+  used_at TIMESTAMPTZ,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT fk_email_verification_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX email_verification_token_hash_unique
+ON email_verification_tokens(token_hash);
+
+CREATE INDEX email_verification_user_id_idx
+ON email_verification_tokens(user_id);</pre></div>
+
+  <h3>3. Understand each column</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Column</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>Unique token record ID</td></tr>
+      <tr><td><code>user_id</code></td><td>Links token to a user</td></tr>
+      <tr><td><code>token_hash</code></td><td>Stores hashed verification token</td></tr>
+      <tr><td><code>expires_at</code></td><td>Token expiration time</td></tr>
+      <tr><td><code>used_at</code></td><td>Records when token was used</td></tr>
+      <tr><td><code>created_at</code></td><td>Token creation timestamp</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout bad"><strong>Why store a hash instead of the original token?</strong><p>Suppose an attacker accesses your database. If you store the original verification token, they could use it to verify someone else’s email. By storing only its hash, the original token cannot be directly retrieved from the database.</p></div>
+
+  <h3>4. Verify table creation</h3>
+  <div class="code term"><div class="cap"><span>psql</span><button class="copy">Copy</button></div><pre>\d email_verification_tokens</pre></div>
+  <p>You should see all six columns and the associated indexes.</p>
+</section>
+
+<!-- 5.2 -->
+<section class="step" id="s2" data-step="3">
+  <div class="step-head"><span class="badge">5.2</span><h2>Generate a secure verification token</h2></div>
+  <p>We generate a cryptographically secure random token using Node.js’s built-in <code>crypto</code> module.</p>
+  <div class="callout warn"><strong>Why crypto?</strong><p>We should never use <code>Math.random()</code> for authentication or verification tokens. It isn’t designed for security. Node.js provides <code>crypto.randomBytes()</code> for generating unpredictable random bytes.</p></div>
+
+  <h3>1. Create the token utility</h3>
+  <div class="code"><div class="cap"><b>src/utils/token.ts</b><button class="copy">Copy</button></div><pre>import { createHash, randomBytes } from "node:crypto";
+
+export const generateVerificationToken = () =&gt; {
+  // Generate 32 cryptographically secure random bytes
+  const token = randomBytes(32).toString("hex");
+
+  // Generate SHA-256 hash of the token
+  const tokenHash = createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  return {
+    token,
+    tokenHash
+  };
+};</pre></div>
+
+  <h3>2. Understand the code</h3>
+  <div class="walk">
+    <details open><summary>A. Generate the original token</summary><div>
+      <div class="code"><pre>const token = randomBytes(32).toString("hex");</pre></div>
+      <ul class="list"><li><code>randomBytes(32)</code> generates 32 random bytes.</li><li><code>.toString("hex")</code> converts them into a hexadecimal string.</li><li>The result contains 64 hexadecimal characters.</li></ul>
+    </div></details>
+    <details><summary>B. Generate its hash</summary><div>
+      <div class="code"><pre>const tokenHash = createHash("sha256").update(token).digest("hex");</pre></div>
+      <p>This creates a SHA-256 hash of the original token.</p>
+    </div></details>
+    <details><summary>C. Return both values</summary><div>
+      <div class="code"><pre>return {
+  token,
+  tokenHash
+};</pre></div>
+    </div></details>
+  </div>
+  <p>Remember which value goes where:</p>
+  <div class="tablewrap" style="max-width:520px"><table>
+    <thead><tr><th>Value</th><th>Where we use it</th></tr></thead>
+    <tbody>
+      <tr><td><code>token</code></td><td>Send to the user’s email</td></tr>
+      <tr><td><code>tokenHash</code></td><td>Store in PostgreSQL</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout bad"><strong>Never leak the original token</strong><p>Never store the original token in the database or log it in the terminal.</p></div>
+
+  <h3>3. Test the utility</h3>
+  <p>Create a temporary file:</p>
+  <div class="code"><div class="cap"><b>src/utils/test-token.ts</b><button class="copy">Copy</button></div><pre>import { generateVerificationToken } from "./token.js";
+
+const result = generateVerificationToken();
+
+console.log("Token length:", result.token.length);
+console.log("Hash length:", result.tokenHash.length);
+console.log("Token and hash are different:",
+  result.token !== result.tokenHash
+);</pre></div>
+  <p>Run:</p>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npx tsx src/utils/test-token.ts</pre></div>
+  <div class="code out"><div class="cap"><span>Expected output</span></div><pre>Token length: 64
+Hash length: 64
+Token and hash are different: true</pre></div>
+  <p>The actual token and hash are intentionally not printed.</p>
+</section>
+
+<!-- 5.3 -->
+<section class="step" id="s3" data-step="4">
+  <div class="step-head"><span class="badge">5.3</span><h2>Store the verification token in PostgreSQL</h2></div>
+  <p>Now we create a service that stores the token hash and sets its expiration time to 15 minutes.</p>
+
+  <h3>1. Create the service</h3>
+  <div class="code"><div class="cap"><b>src/services/email-verification.service.ts</b><button class="copy">Copy</button></div><pre>import pool from "../config/db.js";
+import { generateVerificationToken } from "../utils/token.js";
+
+export const createVerificationToken = async (
+  userId: string
+): Promise&lt;string&gt; =&gt; {
+  // Step 1: Generate token and hash
+  const { token, tokenHash } = generateVerificationToken();
+
+  // Step 2: Store hash in PostgreSQL
+  await pool.query(
+    `INSERT INTO email_verification_tokens
+     (user_id, token_hash, expires_at)
+     VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
+    [userId, tokenHash]
+  );
+
+  // Step 3: Return original token for email delivery
+  return token;
+};</pre></div>
+
+  <h3>2. Understand the important logic</h3>
+  <div class="walk">
+    <details open><summary>Why do we return the original token?</summary><div>
+      <p>The original token will eventually be included in the verification email link, for example:</p>
+      <div class="code"><pre>https://yourwebsite.com/verify-email?token=ORIGINAL_TOKEN</pre></div>
+      <p>The database stores only its hash.</p>
+    </div></details>
+    <details open><summary>Why use NOW() + INTERVAL '15 minutes'?</summary><div>
+      <p>PostgreSQL calculates the expiration time using its own database clock. For example:</p>
+      <div class="tablewrap" style="max-width:360px"><table>
+        <thead><tr><th>Field</th><th>Example</th></tr></thead>
+        <tbody><tr><td>Created at</td><td>10:00 AM</td></tr><tr><td>Expires at</td><td>10:15 AM</td></tr><tr><td>Token status</td><td>Unused</td></tr></tbody>
+      </table></div>
+      <p>After 10:15 AM, the token must not be accepted.</p>
+    </div></details>
+  </div>
+
+  <h3>3. Test TypeScript compilation</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build</pre></div>
+  <p>At this stage we’re only creating the service. We haven’t connected it to registration or sent any emails.</p>
+</section>
+
+<!-- 5.4 -->
+<section class="step" id="s4" data-step="5">
+  <div class="step-head"><span class="badge">5.4</span><h2>Connect token generation to user registration</h2></div>
+  <p>Currently, your registration process creates a user, but it doesn’t generate a verification token automatically. We connect the two services.</p>
+
+  <h3>1. Update src/services/auth.service.ts</h3>
+  <p>Add this import:</p>
+  <div class="code"><div class="cap"><b>src/services/auth.service.ts</b><button class="copy">Copy</button></div><pre>import { createVerificationToken } from "./email-verification.service.js";</pre></div>
+  <p>Now update your <code>registerUser</code> function.</p>
+  <div class="cols">
+    <div><span class="tag bad">Replace</span><div class="code old" style="margin:0"><pre>return result.rows[0];</pre></div></div>
+    <div><span class="tag ok">With</span><div class="code out" style="margin:0"><pre>const user = result.rows[0];
+
+// Generate and store email verification token
+const verificationToken = await createVerificationToken(
+  String(user.id)
+);
+
+return {
+  user,
+  verificationToken
+};</pre></div></div>
+  </div>
+  <p style="margin-top:14px">Your complete service should follow this structure:</p>
+  <div class="code"><div class="cap"><b>src/services/auth.service.ts</b><button class="copy">Copy</button></div><pre>import argon2 from "argon2";
+import pool from "../config/db.js";
+import { AppError } from "../utils/app-error.js";
+import { createVerificationToken } from "./email-verification.service.js";
+
+type RegisterInput = {
+  name: string;
+  email: string;
+  password: string;
+};
+
+export const registerUser = async (userData: RegisterInput) =&gt; {
+  const { name, email, password } = userData;
+
+  const passwordHash = await argon2.hash(password, {
+    type: argon2.argon2id
+  });
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO users (name, email, password_hash)
+       VALUES ($1, $2, $3)
+       RETURNING id, name, email, is_email_verified, is_active, created_at`,
+      [name, email, passwordHash]
+    );
+
+    const user = result.rows[0];
+
+    const verificationToken = await createVerificationToken(
+      String(user.id)
+    );
+
+    return {
+      user,
+      verificationToken
+    };
+
+  } catch (error: unknown) {
+    if (
+      typeof error === "object" &amp;&amp;
+      error !== null &amp;&amp;
+      "code" in error &amp;&amp;
+      error.code === "23505"
+    ) {
+      throw new AppError(409, "Email address is already registered");
+    }
+
+    throw error;
+  }
+};</pre></div>
+
+  <h3>2. Update src/controllers/auth.controller.ts</h3>
+  <div class="cols">
+    <div><span class="tag bad">Change</span><div class="code old" style="margin:0"><pre>const user = await registerUser(req.body);</pre></div></div>
+    <div><span class="tag ok">To</span><div class="code out" style="margin:0"><pre>const { user, verificationToken } = await registerUser(req.body);</pre></div></div>
+  </div>
+  <div class="callout bad"><strong>Don’t send the token in the response</strong><p>For now, <code>verificationToken</code> is retained for the upcoming email integration. Do not send it in the API response.</p></div>
+  <p>Your response should continue using:</p>
+  <div class="code"><pre>sendResponse(
+  res,
+  201,
+  "Registration successful. Please verify your email.",
+  user
+);</pre></div>
+
+  <h3>3. Important security and database note</h3>
+  <div class="callout warn"><strong>An improvement is coming: transactions</strong><p>Currently, user insertion and token insertion are separate database operations. If token creation fails, the user could remain registered without a verification token. A transaction will ensure both operations succeed together or both roll back.</p></div>
+
+  <h3>4. Test</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build</pre></div>
+  <p>Then register a new test user and check PostgreSQL:</p>
+  <div class="code"><div class="cap"><b>SQL</b><button class="copy">Copy</button></div><pre>SELECT id, name, email, is_email_verified
+FROM users
+ORDER BY id DESC
+LIMIT 1;
+
+SELECT user_id, token_hash, expires_at, used_at
+FROM email_verification_tokens
+ORDER BY id DESC
+LIMIT 1;</pre></div>
+  <p>Verify:</p>
+  <ul class="learn">
+    <li>A new user is created</li>
+    <li>A verification token record is created</li>
+    <li><code>token_hash</code> is stored, not the original token</li>
+    <li><code>used_at</code> is NULL</li>
+    <li><code>expires_at</code> is approximately 15 minutes after creation</li>
+  </ul>
+</section>
+
+<!-- 5.5 -->
+<section class="step" id="s5" data-step="6">
+  <div class="step-head"><span class="badge">5.5</span><h2>Implement PostgreSQL transactions</h2></div>
+  <p>Before integrating email delivery, let’s fix an important database reliability issue.</p>
+  <p>The problem: registration performs two separate database operations.</p>
+  <ol class="steps">
+    <li>Insert user into <code>users</code>.</li>
+    <li>Insert verification token into <code>email_verification_tokens</code>.</li>
+  </ol>
+  <p>Imagine the user is inserted successfully, but token creation fails. The database would contain a registered user without a verification token. We want both operations to succeed together or fail together. That’s exactly what a database transaction provides.</p>
+
+  <h3>1. Update src/services/email-verification.service.ts</h3>
+  <p>We pass an existing database connection to this service instead of using the global connection pool. Replace the file with:</p>
+  <div class="code"><div class="cap"><b>src/services/email-verification.service.ts</b><button class="copy">Copy</button></div><pre>import type { PoolClient } from "pg";
+import { generateVerificationToken } from "../utils/token.js";
+
+export const createVerificationToken = async (
+  userId: string,
+  client: PoolClient
+): Promise&lt;string&gt; =&gt; {
+  const { token, tokenHash } = generateVerificationToken();
+
+  await client.query(
+    `INSERT INTO email_verification_tokens
+     (user_id, token_hash, expires_at)
+     VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
+    [userId, tokenHash]
+  );
+
+  return token;
+};</pre></div>
+
+  <h3>2. Update src/services/auth.service.ts</h3>
+  <p>Replace your existing registration service with:</p>
+  <div class="code"><div class="cap"><b>src/services/auth.service.ts</b><button class="copy">Copy</button></div><pre>import argon2 from "argon2";
+import pool from "../config/db.js";
+import { AppError } from "../utils/app-error.js";
+import { createVerificationToken } from "./email-verification.service.js";
+
+type RegisterInput = {
+  name: string;
+  email: string;
+  password: string;
+};
+
+export const registerUser = async (userData: RegisterInput) =&gt; {
+  const { name, email, password } = userData;
+
+  // Hash password before opening the transaction
+  const passwordHash = await argon2.hash(password, {
+    type: argon2.argon2id
+  });
+
+  const client = await pool.connect();
+
+  try {
+    // Start transaction
+    await client.query("BEGIN");
+
+    // Insert user
+    const result = await client.query(
+      `INSERT INTO users (name, email, password_hash)
+       VALUES ($1, $2, $3)
+       RETURNING id, name, email, is_email_verified, is_active, created_at`,
+      [name, email, passwordHash]
+    );
+
+    const user = result.rows[0];
+
+    // Generate and store verification token
+    const verificationToken = await createVerificationToken(
+      String(user.id),
+      client
+    );
+
+    // Commit transaction
+    await client.query("COMMIT");
+
+    return {
+      user,
+      verificationToken
+    };
+
+  } catch (error: unknown) {
+    await client.query("ROLLBACK");
+
+    if (
+      typeof error === "object" &amp;&amp;
+      error !== null &amp;&amp;
+      "code" in error &amp;&amp;
+      error.code === "23505"
+    ) {
+      throw new AppError(409, "Email address is already registered");
+    }
+
+    throw error;
+
+  } finally {
+    client.release();
+  }
+};</pre></div>
+
+  <h3>3. Understand the transaction flow</h3>
+  <div class="flow" aria-label="Transaction flow">
+    <div class="node hl">BEGIN<small>Start transaction</small></div><div class="arrow"></div>
+    <div class="node">INSERT USER</div><div class="arrow"></div>
+    <div class="node">INSERT VERIFICATION TOKEN</div>
+    <div class="branch">
+      <div class="node good">Success → COMMIT: save both records</div>
+      <div class="node stop">Failure → ROLLBACK: undo both operations</div>
+    </div>
+  </div>
+  <p><strong>Important concepts:</strong></p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Concept</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td><code>pool.connect()</code></td><td>Obtains one database connection</td></tr>
+      <tr><td>Same client</td><td>All transaction queries must use that same client</td></tr>
+      <tr><td><code>COMMIT</code></td><td>Saves the changes</td></tr>
+      <tr><td><code>ROLLBACK</code></td><td>Cancels the changes</td></tr>
+      <tr><td><code>client.release()</code></td><td>Returns the connection to the pool</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>4. Test your implementation</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build</pre></div>
+  <p>Then test registration with a new email address and verify both database tables:</p>
+  <div class="code"><div class="cap"><b>SQL</b><button class="copy">Copy</button></div><pre>SELECT * FROM users ORDER BY id DESC LIMIT 1;
+
+SELECT * FROM email_verification_tokens
+ORDER BY id DESC LIMIT 1;</pre></div>
+  <p>Also test duplicate email registration again. It should still return <span class="st" style="background:var(--warn)">409</span>.</p>
+</section>
+
+<!-- 5.6 -->
+<section class="step" id="s6" data-step="7">
+  <div class="step-head"><span class="badge">5.6</span><h2>Install and configure Nodemailer</h2></div>
+  <p>Nodemailer is a Node.js library that allows our application to send emails through an SMTP server. We first configure the email connection; in the next step we send an actual verification email.</p>
+
+  <h3>1. Install Nodemailer</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm install nodemailer
+npm install -D @types/nodemailer</pre></div>
+
+  <h3>2. Configure SMTP environment variables</h3>
+  <p>Add these entries to your existing <code>.env</code> file:</p>
+  <div class="code"><div class="cap"><b>.env</b><button class="copy">Copy</button></div><pre># Email / SMTP Configuration
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_google_app_password
+SMTP_FROM=your_email@gmail.com</pre></div>
+  <div class="callout warn"><strong>Important for Gmail</strong>
+    <ul class="list" style="margin-top:6px">
+      <li>Enable 2-Step Verification on your Google account.</li>
+      <li>Generate a Google App Password.</li>
+      <li>Use that App Password instead of your normal Gmail password.</li>
+      <li>Never share these credentials or commit them to GitHub.</li>
+    </ul>
+  </div>
+
+  <h3>3. Create the email configuration</h3>
+  <div class="code"><div class="cap"><b>src/config/email.ts</b><button class="copy">Copy</button></div><pre>import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: Number(process.env.SMTP_PORT) === 465,
+
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASSWORD
+  }
+});
+
+export default transporter;</pre></div>
+  <div class="tablewrap" style="max-width:560px"><table>
+    <thead><tr><th>Property</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>host</code></td><td>SMTP server address</td></tr>
+      <tr><td><code>port</code></td><td>SMTP connection port</td></tr>
+      <tr><td><code>secure</code></td><td>Uses direct TLS for port 465</td></tr>
+      <tr><td><code>auth.user</code></td><td>Email account</td></tr>
+      <tr><td><code>auth.pass</code></td><td>App Password</td></tr>
+    </tbody>
+  </table></div>
+  <p>Port 587 uses STARTTLS, while port 465 uses direct TLS.</p>
+
+  <h3>4. Create a connection test</h3>
+  <div class="code"><div class="cap"><b>src/config/test-email.ts</b><button class="copy">Copy</button></div><pre>import "dotenv/config";
+import transporter from "./email.js";
+
+const testEmailConnection = async (): Promise&lt;void&gt; =&gt; {
+  try {
+    await transporter.verify();
+
+    console.log("Email server connected successfully!");
+  } catch (error) {
+    console.error("Email connection failed:", error);
+  }
+};
+
+testEmailConnection();</pre></div>
+
+  <h3>5. Test your configuration</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build
+npx tsx src/config/test-email.ts</pre></div>
+  <div class="code out"><div class="cap"><span>Expected output</span></div><pre>Email server connected successfully!</pre></div>
+  <p>If Gmail authentication fails, check your App Password and SMTP settings. Never print your credentials while debugging.</p>
+
+  <h3>6. Understand the code</h3>
+  <p>This function is an asynchronous arrow function with an explicit return type. Let’s break it into five parts.</p>
+  <div class="anat" aria-label="Anatomy of the function">
+    <div><small>1. variable</small>const testEmailConnection</div>
+    <div><small>2. keyword</small>= async</div>
+    <div><small>3. parameters</small>()</div>
+    <div><small>4. return type</small>: Promise&lt;void&gt;</div>
+    <div><small>5. body</small>=&gt; { }</div>
+  </div>
+
+  <div class="walk">
+    <details open><summary>1. const testEmailConnection</summary><div>
+      <p>We are declaring a variable named <code>testEmailConnection</code>. This variable will hold a function. Similar to JavaScript:</p>
+      <div class="code"><pre>const greet = () =&gt; {
+  console.log("Hello");
+};</pre></div>
+    </div></details>
+    <details><summary>2. = async</summary><div>
+      <p>The <code>async</code> keyword makes this an asynchronous function. Why do we need it? Because inside this function we call:</p>
+      <div class="code"><pre>await transporter.verify();</pre></div>
+      <p>The <code>verify()</code> method performs an asynchronous SMTP connection check. <code>await</code> allows JavaScript to wait for that operation to finish before continuing with the next statement. An async function always returns a Promise.</p>
+    </div></details>
+    <details><summary>3. async ()</summary><div>
+      <p>These parentheses represent function parameters. Our function doesn’t need any input, so we leave them empty. For example:</p>
+      <div class="code"><pre>const greet = (name: string) =&gt; {
+  console.log(`Hello ${name}`);
+};</pre></div>
+      <p>Here, <code>name</code> is a parameter. But our email connection test doesn’t require any parameters.</p>
+    </div></details>
+    <details><summary>4. : Promise&lt;void&gt;</summary><div>
+      <p>This is the most important TypeScript part. It tells TypeScript what the function returns. Let’s understand both words:</p>
+      <ul class="list">
+        <li><strong>Promise:</strong> represents a value that may become available in the future because an asynchronous operation is still running.</li>
+        <li><strong>void:</strong> means that the function does not return a meaningful value.</li>
+      </ul>
+      <p style="margin-top:10px">For example, this function prints something but doesn’t return a value:</p>
+      <div class="code"><pre>const sayHello = (): void =&gt; {
+  console.log("Hello");
+};</pre></div>
+      <p>Now combine them: <code>Promise&lt;void&gt;</code> means the function returns a Promise, and when that Promise successfully completes, it doesn’t provide a meaningful result.</p>
+    </div></details>
+    <details><summary>5. =&gt; { }</summary><div>
+      <p>This is the arrow function syntax. It starts the function body.</p>
+    </div></details>
+  </div>
+
+  <h4 style="margin:22px 0 8px;font-size:1.1rem">Let’s compare different function declarations</h4>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Function</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>(): void</code></td><td>Synchronous function with no meaningful return value</td></tr>
+      <tr><td><code>(): string</code></td><td>Synchronous function returning a string</td></tr>
+      <tr><td><code>async (): Promise&lt;void&gt;</code></td><td>Async function with no meaningful return value</td></tr>
+      <tr><td><code>async (): Promise&lt;string&gt;</code></td><td>Async function returning a string through a Promise</td></tr>
+    </tbody>
+  </table></div>
+
+  <h4 style="margin:22px 0 8px;font-size:1.1rem">Practical example</h4>
+  <div class="cols">
+    <div><span class="tag ok">Synchronous</span><div class="code" style="margin:0"><pre>const getName = (): string =&gt; {
+  return "Birendra";
+};</pre></div></div>
+    <div><span class="tag ok">Asynchronous</span><div class="code" style="margin:0"><pre>const getName = async (): Promise&lt;string&gt; =&gt; {
+  return "Birendra";
+};</pre></div></div>
+  </div>
+  <p style="margin-top:14px">Although we return a string inside the async version, JavaScript wraps that value in a Promise. You can use it like this:</p>
+  <div class="code"><pre>const name = await getName();
+
+console.log(name);</pre></div>
+  <div class="code out"><div class="cap"><span>Output</span></div><pre>Birendra</pre></div>
+</section>
+
+<!-- 5.7 -->
+<section class="step" id="s7" data-step="8">
+  <div class="step-head"><span class="badge">5.7</span><h2>Create a reusable email service</h2></div>
+  <p>Your SMTP connection is already working. Now we create a service that can send emails from anywhere in our application. We keep email-sending logic separate from controllers and registration logic, which makes the code reusable.</p>
+
+  <h3>1. Add the application URL to .env</h3>
+  <div class="code"><div class="cap"><b>.env</b><button class="copy">Copy</button></div><pre>APP_BASE_URL=http://localhost:3000</pre></div>
+  <p>This is the base URL of our API. Later, we’ll use it to construct the email verification link.</p>
+
+  <h3>2. Create the email service</h3>
+  <div class="code"><div class="cap"><b>src/services/email.service.ts</b><button class="copy">Copy</button></div><pre>import transporter from "../config/email.js";
+
+const escapeHtml = (value: string): string =&gt; {
+  return value
+    .replace(/&amp;/g, "&amp;amp;")
+    .replace(/&lt;/g, "&amp;lt;")
+    .replace(/&gt;/g, "&amp;gt;")
+    .replace(/"/g, "&amp;quot;")
+    .replace(/'/g, "&amp;#039;");
+};
+
+export const sendVerificationEmail = async (
+  email: string,
+  name: string,
+  token: string
+): Promise&lt;void&gt; =&gt; {
+  const verificationLink =
+    `${process.env.APP_BASE_URL}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: email,
+    subject: "Verify your email address",
+    text: `Hello ${name},
+
+      Please verify your email address by opening this link:
+
+      ${verificationLink}
+
+      This link expires in 15 minutes.
+
+      If you did not create this account, you can ignore this email.`,
+
+    html: `
+      &lt;div&gt;
+        &lt;h2&gt;Email Verification&lt;/h2&gt;
+
+        &lt;p&gt;Hello ${escapeHtml(name)},&lt;/p&gt;
+
+        &lt;p&gt;Thank you for registering with us.&lt;/p&gt;
+
+        &lt;p&gt;Please click the button below to verify your email address.&lt;/p&gt;
+
+        &lt;a href="${verificationLink}"
+          style="display:inline-block;padding:12px 20px;
+                 background-color:#2563eb;color:white;
+                 text-decoration:none;border-radius:5px;"&gt;
+          Verify Email
+        &lt;/a&gt;
+
+        &lt;p&gt;This verification link expires in 15 minutes.&lt;/p&gt;
+
+        &lt;p&gt;If you did not create this account, you can ignore this email.&lt;/p&gt;
+      &lt;/div&gt;
+    `
+  });
+};</pre></div>
+
+  <h3>3. Understand the important parts</h3>
+  <div class="walk">
+    <details open><summary>A. transporter.sendMail()</summary><div>
+      <div class="code"><pre>await transporter.sendMail({
+  from: process.env.SMTP_FROM,
+  to: email,
+  subject: "Verify your email address"
+});</pre></div>
+      <p>This sends an email using the SMTP transporter we configured earlier.</p>
+    </div></details>
+    <details><summary>B. Promise&lt;void&gt;</summary><div><p>The function performs an asynchronous operation but doesn’t return a meaningful value.</p></div></details>
+    <details><summary>C. encodeURIComponent(token)</summary><div><p>This safely encodes the token before placing it in a URL.</p></div></details>
+    <details><summary>D. escapeHtml(name)</summary><div><p>The user’s name is inserted into HTML. Escaping prevents special HTML characters in the name from being interpreted as markup.</p></div></details>
+    <details><summary>E. Text and HTML versions</summary><div>
+      <p>We provide both:</p>
+      <ul class="list"><li><code>text</code>: plain-text email.</li><li><code>html</code>: formatted email with a verification button.</li></ul>
+    </div></details>
+  </div>
+
+  <h3>4. Understand our current architecture</h3>
+  <div class="flow" aria-label="Architecture">
+    <div class="node hl">Auth controller<small>Handles the registration request</small></div><div class="arrow"></div>
+    <div class="node">Auth service<small>Creates user and verification token in a transaction</small></div><div class="arrow"></div>
+    <div class="node hl">Email service<small>Sends the verification email</small></div><div class="arrow"></div>
+    <div class="node">Nodemailer / SMTP<small>Delivers the email</small></div>
+  </div>
+  <div class="callout ok"><strong>An important design decision</strong><p>We send the email only after the database transaction commits. We don’t want a slow SMTP operation holding a database connection or transaction open.</p></div>
+
+  <div class="callout warn"><strong>Don’t connect this service to registration yet</strong><p>We do that next and handle email delivery failures carefully.</p></div>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build</pre></div>
+  <p>Now let’s connect it to registration and send your first real verification email.</p>
+</section>
+
+<!-- 5.8 -->
+<section class="step" id="s8" data-step="9">
+  <div class="step-head"><span class="badge">5.8</span><h2>Integrate email sending with registration</h2></div>
+  <p>We send the email after the database transaction commits. This ensures SMTP operations don’t hold database connections unnecessarily.</p>
+
+  <h3>1. Update src/controllers/auth.controller.ts</h3>
+  <p>Replace your existing controller with:</p>
+  <div class="code"><div class="cap"><b>src/controllers/auth.controller.ts</b><button class="copy">Copy</button></div><pre>import type { Request, Response, NextFunction } from "express";
+import { registerUser } from "../services/auth.service.js";
+import { sendVerificationEmail } from "../services/email.service.js";
+import { sendResponse } from "../utils/api-response.js";
+import { AppError } from "../utils/app-error.js";
+
+export const register = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise&lt;void&gt; =&gt; {
+  try {
+    // Create user and verification token
+    const { user, verificationToken } = await registerUser(req.body);
+
+    // Send verification email after database commit
+    try {
+      await sendVerificationEmail(
+        user.email,
+        user.name,
+        verificationToken
+      );
+    } catch (emailError) {
+      console.error("Verification email delivery failed:", emailError);
+
+      next(
+        new AppError(
+          503,
+          "Account created, but verification email could not be sent. Please try again later."
+        )
+      );
+      return;
+    }
+
+    // Send API response
+    sendResponse(
+      res,
+      201,
+      "Registration successful. Please verify your email.",
+      user
+    );
+
+  } catch (error) {
+    next(error);
+  }
+};</pre></div>
+
+  <h3>2. Understand the updated flow</h3>
+  <div class="flow" aria-label="Updated flow">
+    <div class="node">Registration request</div><div class="arrow"></div>
+    <div class="node hl">Create user + verification token<small>PostgreSQL transaction</small></div><div class="arrow"></div>
+    <div class="node">COMMIT<small>Database changes are saved</small></div><div class="arrow"></div>
+    <div class="node hl">Send verification email<small>Nodemailer / SMTP</small></div><div class="arrow"></div>
+    <div class="node good">Return HTTP 201</div>
+  </div>
+  <div class="callout warn"><strong>Email and transactions can’t be atomic together</strong><p>If email delivery fails, the user record and token remain in PostgreSQL. We’ll implement a resend-verification endpoint later so the user can recover without registering again.</p></div>
+
+  <h3>3. Test your registration API</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build
+npm run dev</pre></div>
+  <p>Send a POST request to:</p>
+  <div class="endpoint"><span class="m">POST</span>http://localhost:3000/api/auth/register</div>
+  <p>Use a new email address that you can access:</p>
+  <div class="code"><div class="cap"><span>Request body</span><button class="copy">Copy</button></div><pre>{
+  "name": "Email Test User",
+  "email": "your_email@example.com",
+  "password": "MySecurePassword@123"
+}</pre></div>
+
+  <h3>4. Verify the result</h3>
+  <p>Check these three things:</p>
+  <ol class="steps">
+    <li>API returns <strong>201 Created</strong>.</li>
+    <li>You receive the verification email in your inbox.</li>
+    <li>The database contains the user and corresponding token hash.</li>
+  </ol>
+  <div class="code"><div class="cap"><b>SQL</b><button class="copy">Copy</button></div><pre>SELECT id, email, is_email_verified
+FROM users
+ORDER BY id DESC
+LIMIT 1;
+
+SELECT user_id, expires_at, used_at
+FROM email_verification_tokens
+ORDER BY id DESC
+LIMIT 1;</pre></div>
+  <p><strong>Expected:</strong> the email contains a <em>Verify Email</em> button, and <code>is_email_verified</code> is still <code>false</code> until the user clicks it.</p>
+
+  <div class="callout ok"><strong>Registration-to-email-delivery flow complete</strong>
+    <ul class="list" style="margin-top:6px">
+      <li>User registration and validation</li><li>Argon2id password hashing</li><li>PostgreSQL transaction</li><li>Secure verification token generation</li><li>Hashed token storage</li><li>15-minute token expiration</li><li>SMTP email delivery</li>
+    </ul>
+    <p style="margin-top:8px">The next important part is making the verification link actually work.</p>
+  </div>
+</section>
+
+<!-- 5.9 -->
+<section class="step" id="s9" data-step="10">
+  <div class="step-head"><span class="badge">5.9</span><h2>Implement the email verification service</h2></div>
+  <p>We use a POST endpoint to verify the token. For now, we test it by copying the token from the email and sending it in the request body.</p>
+  <div class="callout"><strong>Why POST instead of verifying directly on GET?</strong><p>Some email providers automatically open links to scan them. We don’t want an automatic link scan to verify an account without the user taking action.</p></div>
+
+  <h3>1. Create the verification service</h3>
+  <p>We already have <code>createVerificationToken()</code> in <code>src/services/email-verification.service.ts</code>. Keep that function and add the following imports at the top of the existing file:</p>
+  <div class="code"><div class="cap"><b>src/services/email-verification.service.ts</b><button class="copy">Copy</button></div><pre>import { createHash } from "node:crypto";
+import pool from "../config/db.js";
+import { AppError } from "../utils/app-error.js";</pre></div>
+  <p>Keep your existing <code>PoolClient</code> import and <code>createVerificationToken</code> function. Now add:</p>
+  <div class="code"><div class="cap"><b>src/services/email-verification.service.ts</b><button class="copy">Copy</button></div><pre>export const verifyEmailToken = async (
+  token: string
+): Promise&lt;void&gt; =&gt; {
+  // Step 1: Hash the received token
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Step 2: Find a valid, unused, unexpired token
+    const result = await client.query(
+      `SELECT id, user_id
+       FROM email_verification_tokens
+       WHERE token_hash = $1
+       AND used_at IS NULL
+       AND expires_at &gt; NOW()
+       FOR UPDATE`,
+      [tokenHash]
+    );
+
+    if (result.rowCount === 0) {
+      throw new AppError(
+        400,
+        "Invalid or expired verification token"
+      );
+    }
+
+    const verificationRecord = result.rows[0];
+
+    // Step 3: Mark the user's email as verified
+    await client.query(
+      `UPDATE users
+       SET is_email_verified = TRUE,
+       updated_at = NOW()
+       WHERE id = $1`,
+      [verificationRecord.user_id]
+    );
+
+    // Step 4: Mark token as used
+    await client.query(
+      `UPDATE email_verification_tokens
+       SET used_at = NOW()
+       WHERE id = $1`,
+      [verificationRecord.id]
+    );
+
+    await client.query("COMMIT");
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+
+  } finally {
+    client.release();
+  }
+};</pre></div>
+
+  <h3>2. Understand the important concepts</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Code</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>createHash("sha256")</code></td><td>Hashes the token received from the user</td></tr>
+      <tr><td><code>expires_at &gt; NOW()</code></td><td>Rejects expired tokens</td></tr>
+      <tr><td><code>used_at IS NULL</code></td><td>Rejects previously used tokens</td></tr>
+      <tr><td><code>FOR UPDATE</code></td><td>Locks the selected token row during verification</td></tr>
+      <tr><td><code>is_email_verified = TRUE</code></td><td>Verifies the user’s email</td></tr>
+      <tr><td><code>used_at = NOW()</code></td><td>Prevents token reuse</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout ok"><strong>Why FOR UPDATE?</strong><p>Imagine two requests arrive simultaneously using the same token. Without row locking, both requests might read the token as unused. <code>FOR UPDATE</code> ensures that only one transaction can process that token at a time. The second request will see that the token has already been used after the first transaction commits.</p></div>
+
+  <h3>3. Test TypeScript compilation</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build</pre></div>
+</section>
+
+<!-- 5.10 -->
+<section class="step" id="s10" data-step="11">
+  <div class="step-head"><span class="badge">5.10</span><h2>Create the email verification endpoint</h2></div>
+  <p>We use a <strong>POST</strong> request to verify the email address.</p>
+  <div class="callout"><strong>Why POST instead of GET?</strong><p>Some email providers automatically open links to scan them. If verification happens through GET, a scanner could accidentally consume the token before the user does.</p></div>
+
+  <h3>1. Update src/validators/auth.validator.ts</h3>
+  <p>Keep your existing <code>registerSchema</code> and add:</p>
+  <div class="code"><div class="cap"><b>src/validators/auth.validator.ts</b><button class="copy">Copy</button></div><pre>export const verifyEmailSchema = z.object({
+  token: z.string().regex(
+    /^[a-f0-9]{64}$/i,
+    "Invalid verification token"
+  )
+});</pre></div>
+  <p>This validates that the token contains exactly 64 hexadecimal characters.</p>
+
+  <h3>2. Update src/controllers/auth.controller.ts</h3>
+  <p>Add this import:</p>
+  <div class="code"><div class="cap"><b>src/controllers/auth.controller.ts</b><button class="copy">Copy</button></div><pre>import { verifyEmailToken } from "../services/email-verification.service.js";</pre></div>
+  <p>Then add this controller below your existing <code>register</code> function:</p>
+  <div class="code"><div class="cap"><b>src/controllers/auth.controller.ts</b><button class="copy">Copy</button></div><pre>export const verifyEmail = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise&lt;void&gt; =&gt; {
+  try {
+    await verifyEmailToken(req.body.token);
+
+    sendResponse(
+      res,
+      200,
+      "Email verified successfully"
+    );
+  } catch (error) {
+    next(error);
+  }
+};</pre></div>
+
+  <h3>3. Update src/routes/auth.routes.ts</h3>
+  <p>Add the new imports:</p>
+  <div class="code"><div class="cap"><b>src/routes/auth.routes.ts</b><button class="copy">Copy</button></div><pre>import { verifyEmail } from "../controllers/auth.controller.js";
+import { verifyEmailSchema } from "../validators/auth.validator.js";</pre></div>
+  <p>Add this route:</p>
+  <div class="code"><div class="cap"><b>src/routes/auth.routes.ts</b><button class="copy">Copy</button></div><pre>router.post("/verify-email", validate(verifyEmailSchema), verifyEmail);</pre></div>
+  <p>Your routes should now include:</p>
+  <div class="code out"><div class="cap"><span>Routes</span></div><pre>router.post("/register", validate(registerSchema), register);
+router.post("/verify-email", validate(verifyEmailSchema), verifyEmail);</pre></div>
+
+  <h3>4. Build the project</h3>
+  <div class="code term"><div class="cap"><span>Project terminal</span><button class="copy">Copy</button></div><pre>npm run build</pre></div>
+</section>
+
+<!-- 5.11 -->
+<section class="step" id="s11" data-step="12">
+  <div class="step-head"><span class="badge">5.11</span><h2>Test email verification using Postman</h2></div>
+  <p>First, we need to register a new user and receive a fresh verification email.</p>
+
+  <h3>1. Register a new user</h3>
+  <p>Send:</p>
+  <ul class="list"><li><strong>Method:</strong> POST</li><li><strong>URL:</strong> <code>http://localhost:3000/api/auth/register</code></li><li><strong>Body:</strong> raw → JSON</li></ul>
+  <div class="code"><div class="cap"><span>Request body</span><button class="copy">Copy</button></div><pre>{
+  "name": "Test User",
+  "email": "testuser@example.com",
+  "password": "StrongPassword@123"
+}</pre></div>
+  <p>You should receive a successful registration response.</p>
+
+  <h3>2. Copy the verification token</h3>
+  <p>Open the verification email. Your verification link will look something like this:</p>
+  <div class="code"><pre>http://localhost:3000/api/auth/verify-email?token=abcdef123456...</pre></div>
+  <div class="callout warn"><strong>Copy only the token</strong><p>Copy only the token after <code>token=</code>. Do not include the URL or <code>?token=</code>.</p></div>
+
+  <h3>3. Verify the email</h3>
+  <p>Create another Postman request:</p>
+  <div class="endpoint"><span class="m">POST</span>http://localhost:3000/api/auth/verify-email</div>
+  <p>Name it <em>Verify Email</em>, then use Body → raw → JSON:</p>
+  <div class="code"><div class="cap"><span>Request body</span><button class="copy">Copy</button></div><pre>{
+  "token": "PASTE_YOUR_ACTUAL_TOKEN_HERE"
+}</pre></div>
+  <div class="browser"><div class="url"><span>Expected response</span><span class="st">200</span></div>
+<pre>{
+  "success": true,
+  "message": "Email verified successfully",
+  "data": null
+}</pre></div>
+
+  <h3>4. Check PostgreSQL</h3>
+  <div class="code"><div class="cap"><b>SQL</b><button class="copy">Copy</button></div><pre>SELECT id, email, is_email_verified
+FROM users
+WHERE email = 'testuser@example.com';</pre></div>
+  <p>Expected: <code>is_email_verified = true</code>. Then check the token:</p>
+  <div class="code"><div class="cap"><b>SQL</b><button class="copy">Copy</button></div><pre>SELECT user_id, expires_at, used_at
+FROM email_verification_tokens
+ORDER BY id DESC
+LIMIT 1;</pre></div>
+  <p><code>used_at</code> should contain a timestamp.</p>
+</section>
+
+<div class="finish">
+  <h2>Your email verification flow is working</h2>
+  <ul class="learn" style="margin:12px 0 20px">
+    <li>Registration creates the user</li>
+    <li>A secure verification token is generated and stored as a hash</li>
+    <li>Verification email is delivered</li>
+    <li>The API validates the token</li>
+    <li>The user’s email status is updated</li>
+    <li>The token is marked as used</li>
+  </ul>
+  <h3 style="font-size:1.15rem;margin:0 0 6px">Next: Step 5.12, security testing</h3>
+  <p>We’ll test:</p>
+  <ul class="learn todo" style="margin:8px 0 20px">
+    <li>Reusing an already-used token</li>
+    <li>Sending an invalid token</li>
+    <li>Sending an expired token</li>
+  </ul>
+  <a class="btn primary" href="phase-6.html">Continue to Phase 6: Login and JWT</a>
+</div>
+
+<nav class="pager" aria-label="Phase navigation">
+  <a class="btn" href="phase-4.html">Phase 4: User registration</a>
+  <a class="btn" href="../index.html#roadmap">All phases</a>
+  <a class="btn primary" href="phase-6.html">Phase 6: Login and JWT</a>
+</nav>
+
+</main>
+</div>
+
+<script>
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const KEY = 'um-api-p5-steps';
+const TOTAL = 12;
+let done = new Set();
+try{ done = new Set(JSON.parse(localStorage.getItem(KEY)||'[]')); }catch(e){}
+
+$$('.step').forEach(sec=>{
+  const n = +sec.dataset.step;
+  const label = document.createElement('label');
+  label.className = 'done-row';
+  label.innerHTML = `<input type="checkbox" ${done.has(n)?'checked':''}> I finished this step`;
+  label.querySelector('input').addEventListener('change', e=>{
+    e.target.checked ? done.add(n) : done.delete(n);
+    try{ localStorage.setItem(KEY, JSON.stringify([...done])); }catch(_){}
+    refresh();
+  });
+  sec.appendChild(label);
+});
+function refresh(){
+  $('#doneCount').textContent = done.size;
+  $('#doneBar').style.width = (done.size/TOTAL*100)+'%';
+  $$('.step').forEach(s=>s.classList.toggle('is-done', done.has(+s.dataset.step)));
+  $$('#toc a').forEach((a,i)=>a.classList.toggle('is-done', done.has(i+1)));
+}
+refresh();
+
+const root = document.documentElement;
+try{ const t = localStorage.getItem('um-api-theme'); if(t) root.setAttribute('data-theme', t); }catch(e){}
+$('#theme').addEventListener('click', ()=>{
+  const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  const next = cur==='dark'?'light':'dark';
+  root.setAttribute('data-theme', next);
+  try{ localStorage.setItem('um-api-theme', next); }catch(e){}
+});
+
+$$('.copy').forEach(b=>b.addEventListener('click',()=>{
+  const txt = b.closest('.code').querySelector('pre').innerText;
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(()=>{
+    b.textContent='Copied'; setTimeout(()=>b.textContent='Copy',1400);
+  }).catch(()=>{ b.textContent='Select and copy'; setTimeout(()=>b.textContent='Copy',1600); });
+}));
+
+const links = $$('#toc a');
+const io = new IntersectionObserver(es=>{
+  es.forEach(e=>{ if(e.isIntersecting){ links.forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+e.target.id)); } });
+},{rootMargin:'-30% 0px -60% 0px'});
+$$('.step').forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

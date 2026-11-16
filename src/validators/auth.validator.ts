@@ -19,3 +19,10 @@ export const registerSchema = z.object({
         .min(12, "Password must contain at least 12 characters")
         .max(128, "Password cannot exceed 128 characters")
 });
+
+export const verifyEmailSchema = z.object({
+    token: z.string().regex(
+        /^[a-f0-9]{64}$/i,
+        "Invalid verification token"
+    )
+});
