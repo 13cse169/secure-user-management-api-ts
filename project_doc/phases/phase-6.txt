@@ -1,0 +1,3277 @@
+Phase 6: Login and JWT authentication
+
+Let's begin Phase 6 — Authentication & Authorization.
+
+In this phase, we'll build login, JWT authentication, refresh tokens, role-based authorization, and protected routes.
+
+Our first task is to organize the authentication routes without changing any existing API endpoint or functionality.
+
+Phase 6.1 — Modularize authentication routes
+    Why are we doing this?
+
+    Currently, registration and email verification routes are together in one file. As we add login, logout, refresh-token, and password-related routes, keeping everything in one file will become difficult to maintain.
+
+    We'll separate them into smaller route files.
+    
+    1. Create the following folder structure
+        Inside src/routes/, create a new folder named auth.
+
+        Your structure should look like this:
+            src/
+            └── routes/
+                ├── auth/
+                │   ├── registration.routes.ts
+                │   ├── email-verification.routes.ts
+                │   └── auth.routes.ts
+                │
+                ├── health.routes.ts
+                └── user.routes.ts
+
+    2. Create registration.routes.ts
+        Move only the registration route into this file.
+        
+        import { Router } from "express";
+        import { register } from "../../controllers/auth.controller.js";
+        import { validate } from "../../middlewares/validate.middleware.js";
+        import { registerSchema } from "../../validators/auth.validator.js";
+
+        const router = Router();
+
+        router.post("/register", validate(registerSchema), register);
+
+        export default router;
+
+    3. Create email-verification.routes.ts
+        Move only the email verification route into this file.
+        
+        import { Router } from "express";
+        import { verifyEmail } from "../../controllers/auth.controller.js";
+        import { validate } from "../../middlewares/validate.middleware.js";
+        import { verifyEmailSchema } from "../../validators/auth.validator.js";
+
+        const router = Router();
+
+        router.post("/verify-email", validate(verifyEmailSchema), verifyEmail);
+
+        export default router;
+
+    4. Create auth.routes.ts
+        This file will combine both route modules.
+        
+        import { Router } from "express";
+        import registrationRouter from "./registration.routes.js";
+        import emailVerificationRouter from "./email-verification.routes.js";
+
+        const router = Router();
+
+        router.use(registrationRouter);
+        router.use(emailVerificationRouter);
+
+        export default router;
+
+        Understand router.use() here:
+
+        It mounts another router inside the current router.
+
+        For example:
+            - registrationRouter handles /register.
+            - emailVerificationRouter handles /verify-email.
+        
+        The parent router combines both.
+
+    5. Update src/app.ts
+        Change your authentication router import:
+            import authRouter from "./routes/auth/auth.routes.js";
+
+        Keep the existing mounting line unchanged:
+            app.use("/api/auth", authRouter);
+
+        Your API endpoints remain exactly the same:
+            Method	Endpoint
+            POST	/api/auth/register
+            POST	/api/auth/verify-email
+
+        Important: After confirming the new structure works, you can delete the old src/routes/auth.routes.ts file. Do not keep two competing implementations.
+    
+    6. Test the project
+        Run:
+            npm run build
+            npm run dev
+
+
+        Then verify:
+            1. POST /api/auth/register still works.
+            2. POST /api/auth/verify-email still works.
+            3. GET /api/health still works.
+
+        We are reorganizing the code, not changing its behavior.
+
+
+
+Phase 6.2 — Prepare the login functionality
+    Before implementing login, let's understand what needs to happen when a user logs in.
+
+    Login workflow:
+        1. User submits email and password
+        2. Validate request using Zod
+        3. Find user by email in PostgreSQL
+        4. Verify password using Argon2
+        5. Generate JWT access and refresh tokens
+        6. Return successful login response
+
+    We'll implement this one piece at a time.
+    
+    Step 6.2.1 — Create the login validation schema
+        Open:
+            src/validators/auth.validator.ts
+
+        Add this schema without changing your existing registration and verification schemas:
+            export const loginSchema = z.object({
+                email: z.string()
+                    .trim()
+                    .email("Please enter a valid email address")
+                    .max(255, "Email cannot exceed 255 characters")
+                    .transform((value) => value.toLowerCase()),
+
+                password: z.string()
+                    .min(1, "Password is required")
+                    .max(128, "Password cannot exceed 128 characters")
+            });
+        
+        Why are we using min(1) instead of min(12) for login?
+
+        During registration, we enforce a minimum password length of 12 characters.
+
+        During login, we should validate the password against the password the user originally registered with. We shouldn't introduce new password rules that could prevent existing users from logging in.
+        
+    Step 6.2.2 — Understand the expected request
+        When we test login in Postman, we'll send:
+
+            POST /api/auth/login
+            {
+                "email": "birendra@example.com",
+                "password": "YourRegisteredPassword"
+            }
+    
+    Phase 6.2.2 — Create the login route
+        Now we'll connect the login endpoint to our Express application.
+        
+        1. Create src/routes/auth/login.routes.ts
+            Add the following code:
+
+            import { Router } from "express";
+            import { validate } from "../../middlewares/validate.middleware.js";
+            import { loginSchema } from "../../validators/auth.validator.js";
+
+            const router = Router();
+
+            // Login endpoint will be connected to its controller next.
+            router.post("/login", validate(loginSchema), (req, res) => {
+                res.status(501).json({
+                    success: false,
+                    message: "Login functionality is not implemented yet",
+                    data: null
+                });
+            });
+
+            export default router;
+
+        Why are we temporarily returning status 501?
+
+        We haven't created the login controller yet. HTTP 501 means Not Implemented. This temporary handler lets us test whether the route and validation middleware are connected correctly.
+
+    2. Update src/routes/auth/auth.routes.ts
+        Import the new router:
+            import loginRouter from "./login.routes.js";
+
+        Mount it:
+            router.use(loginRouter);
+
+        Your parent router should now combine three modules:
+            router.use(registrationRouter);
+            router.use(emailVerificationRouter);
+            router.use(loginRouter);
+        
+    3. Test using Postman
+        Run your server: npm run dev
+
+        Test these requests:
+            Request	                    Expected status
+            Valid email and password	501
+            Invalid email	            400
+            Empty password	            400
+            Missing email	            400
+
+        For the valid request, the temporary handler should return:
+            {
+                "success": false,
+                "message": "Login functionality is not implemented yet",
+                "data": null
+            }
+
+        The invalid requests should be rejected by Zod before reaching the handler.
+    
+    Phase 6.2.3 — Create a service to find a user by email
+        Before checking a password, we need to retrieve the user's stored password hash from the database.
+        
+        1. Create src/services/user.service.ts update
+            You already have a getAllUsers() function in this file. Keep it unchanged.
+
+            Add this new function:
+                export const getUserByEmail = async (email: string) => {
+                    const result = await pool.query(
+                        `SELECT
+                            id,
+                            name,
+                            email,
+                            password_hash,
+                            is_email_verified,
+                            is_active
+                        FROM users
+                        WHERE LOWER(email) = LOWER($1)
+                        LIMIT 1`,
+                        [email]
+                    );
+
+                    return result.rows[0] ?? null;
+                    };
+            
+        2. Understand the important parts
+            A. Parameterized query
+                WHERE LOWER(email) = LOWER($1)
+
+                $1 is a placeholder. The actual email is passed separately:
+                    [email]
+
+                This protects the query from SQL injection.
+
+            B. Why password_hash?
+                Our database doesn't store the original password. It stores the Argon2 hash.
+                We'll retrieve that hash and compare it with the password submitted during login.
+
+            C. Why ?? null?
+                return result.rows[0] ?? null;
+                    - If a matching user exists, return the user object.
+                    - If no user exists, return null.
+        
+            D. Why are we retrieving inactive and unverified status?
+                We'll use these fields to prevent inactive or unverified users from logging in.
+        
+        3. Build the project
+            npm run build
+
+    Phase 6.2.4 — Understand password verification using Argon2
+        Before writing the login service, let's understand how password verification works.
+        During registration, we used:
+            const passwordHash = await argon2.hash(password, {
+                type: argon2.argon2id
+            });
+
+        For example:
+            During registration, User password: MySecurePassword123
+            Argon2id hashing
+            Database: $argon2id$v=19$...
+            During login, Submitted password: MySecurePassword123
+            argon2.verify()
+            true — Password matches
+
+        1. Important: We don't hash the password again and compare strings
+            Argon2 uses a random salt when generating a hash. Therefore, hashing the same password again can produce a different hash.
+
+            Instead, we use:
+                const isPasswordValid = await argon2.verify(
+                    user.password_hash,
+                    password
+                );
+
+            Arguments:
+                - First argument: stored password hash from PostgreSQL.
+                - Second argument: password submitted by the user.
+
+            It returns a boolean:
+                - true — Password matches.
+                - false — Password doesn't match.
+        
+        2. Create a temporary file:
+            src/config/test-password.ts
+            Add:
+                import argon2 from "argon2";
+
+                const testPassword = async (): Promise<void> => {
+                    const password = "MySecureTestPassword123";
+
+                    const passwordHash = await argon2.hash(password, {
+                        type: argon2.argon2id
+                    });
+
+                    const correctPassword = await argon2.verify(
+                        passwordHash,
+                        password
+                    );
+
+                    const wrongPassword = await argon2.verify(
+                        passwordHash,
+                        "WrongTestPassword123"
+                    );
+
+                    console.log("Correct password:", correctPassword);
+                    console.log("Wrong password:", wrongPassword);
+                };
+
+                testPassword();
+            
+            Run:
+                npx tsx src/config/test-password.ts
+            
+            Expected output:
+                Correct password: true
+                Wrong password: false
+
+    Phase 6.2.5 — Create the login service
+        We'll keep authentication business logic inside the service layer, not inside the controller.
+        
+        1. Update src/services/auth.service.ts
+            Add this import:
+                import { getUserByEmail } from "./user.service.js";
+
+            You already have the argon2 import in this file.
+            Now add the following function below your existing registerUser() function:
+
+            type LoginInput = {
+                email: string;
+                password: string;
+            };
+
+            export const loginUser = async (loginData: LoginInput) => {
+                const { email, password } = loginData;
+
+                // 1. Find user by email
+                const user = await getUserByEmail(email);
+
+                // 2. Check whether user exists
+                if (!user) {
+                    throw new AppError(401, "Invalid email or password");
+                }
+
+                // 3. Check whether account is active
+                if (!user.is_active) {
+                    throw new AppError(403, "Your account is inactive");
+                }
+
+                // 4. Check whether email is verified
+                if (!user.is_email_verified) {
+                    throw new AppError(403, "Please verify your email before logging in");
+                }
+
+                // 5. Verify password
+                const isPasswordValid = await argon2.verify(
+                    user.password_hash,
+                    password
+                );
+
+                if (!isPasswordValid) {
+                    throw new AppError(401, "Invalid email or password");
+                }
+
+                // 6. Return safe user information
+                return {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    is_email_verified: user.is_email_verified,
+                    is_active: user.is_active
+                };
+            };
+        
+        2. Understand the security decisions
+            Condition	            HTTP status	Reason
+            User doesn't exist	    401	Invalid credentials
+            Wrong password	        401	Invalid credentials
+            Account inactive	    403	Account disabled
+            Email not verified	    403	Verification required
+            All checks pass	—	    Return user information
+
+            Why use the same error for missing user and wrong password?
+
+            If we return "Email does not exist", attackers can discover which email addresses are registered.
+
+            Returning the same 401 Invalid email or password message reduces this user-enumeration risk.
+
+            Why return a new object instead of the database user directly?
+
+            Because the database user contains password_hash. We must never send that field to the client.
+        
+        3. Build the project
+            npm run build
+
+            Don't modify the controller yet.
+
+            Expected result
+                TypeScript compilation succeeds.
+    
+    Phase 6.2.6 — Create the login controller
+        The controller receives the HTTP request, calls the service, and sends the standardized API response.
+
+        1. Update src/controllers/auth.controller.ts
+            Add this import:
+                import { loginUser } from "../services/auth.service.js";
+
+            Now add the following controller below your existing verifyEmail controller:
+                export const login = async (
+                    req: Request,
+                    res: Response,
+                    next: NextFunction
+                ): Promise<void> => {
+                    try {
+                        const user = await loginUser(req.body);
+
+                        sendResponse(
+                        res,
+                        200,
+                        "Login successful",
+                        user
+                        );
+                    } catch (error) {
+                        next(error);
+                    }
+                };
+
+        2. Understand the controller flow
+            When a login request arrives:
+                1. req.body contains the email and password.
+                2. loginUser(req.body) calls the authentication service.
+                3. The service checks the user and password.
+                4. If successful, it returns safe user information.
+                5. sendResponse() sends the response.
+                6. If an error occurs, next(error) forwards it to your centralized error handler.
+
+            Notice that we don't write password verification logic in the controller. That belongs in the service layer.
+        
+        3. Build the project
+            npm run build
+
+            That's all for this step.
+    
+    Phase 6.2.7 — Connect the login controller to the route
+        Now we'll remove the temporary 501 Not Implemented handler and connect the actual login controller.
+        1. Update src/routes/auth/login.routes.ts
+            Replace the existing code with:
+
+            import { Router } from "express";
+            import { login } from "../../controllers/auth.controller.js";
+            import { validate } from "../../middlewares/validate.middleware.js";
+            import { loginSchema } from "../../validators/auth.validator.js";
+
+            const router = Router();
+
+            router.post("/login", validate(loginSchema), login);
+
+            export default router;
+
+            Notice this line:
+                router.post("/login", validate(loginSchema), login);
+
+            Express executes middleware in this order:
+                1. validate(loginSchema) — validates the request body.
+                2. login — executes the login controller.
+
+            If validation fails, the controller never executes.
+
+        2. Build and start the server
+            npm run build
+            npm run dev
+
+        3. Test login using Postman
+            POST: http://localhost:3000/api/auth/login
+
+            Request body:
+                {
+                    "email": "your-verified-email@example.com",
+                    "password": "YourRegisteredPassword"
+                }
+
+            Use an account that has already completed email verification.
+
+            Test these cases:
+                Test	                        Expected status
+                Correct email and password	    200
+                Incorrect password	            401
+                Non-existing email	            401
+                Unverified email	            403
+                Invalid email format	        400
+                Empty password	                400
+
+            Successful response should look like:
+                {
+                    "success": true,
+                    "message": "Login successful",
+                    "data": {
+                        "id": "1",
+                        "name": "Birendra Singh",
+                        "email": "your-verified-email@example.com",
+                        "is_email_verified": true,
+                        "is_active": true
+                    }
+                }
+
+            Your actual user details will depend on your database.
+
+    Important: At this stage, login does not generate JWT tokens yet. We are first confirming that the credential verification flow works correctly.
+
+
+You've now completed the complete email/password authentication flow:
+    - Zod validates login input.
+    - PostgreSQL retrieves the user.
+    - Inactive and unverified accounts are rejected.
+    - Argon2 verifies the password.
+    - The controller returns a standardized response.
+    - All Postman test cases pass.
+
+Now comes an important part of authentication.
+
+
+
+Phase 6.3 — JWT Authentication
+
+    We'll implement:
+        1. JWT access token generation.
+        2. JWT refresh token generation.
+        3. Token verification.
+        4. Authentication middleware.
+        5. Protected API routes.
+
+    First, let's understand the difference between access and refresh tokens.
+
+    Access Token: Short-lived
+        Used to access protected APIs, such as:
+            - View profile
+            - Update profile
+            - Access user-specific data
+        
+        Example lifetime: 15 minutes
+
+    Refresh Token: Longer-lived
+        Used to obtain a new access token without asking the user to log in again.
+
+        Example lifetime: 7 days
+    
+    How they work together:
+        (image)
+
+    The client sends the access token with API requests. When it expires, the client uses the refresh token to obtain a new access token.
+
+    We'll implement refresh-token storage and rotation securely in a later step.
+
+    Step 6.3.1 — Install JWT packages
+        We'll use the jsonwebtoken library.
+
+        Run:
+            npm install jsonwebtoken
+            npm install -D @types/jsonwebtoken
+
+        Why two packages?
+            - jsonwebtoken: generates and verifies JWT tokens.
+            - @types/jsonwebtoken: provides TypeScript definitions.
+
+    Step 6.3.2 — Configure environment variables
+        Open your .env file and add:
+            JWT_ACCESS_SECRET=replace_with_a_long_random_secret
+            JWT_REFRESH_SECRET=replace_with_another_long_random_secret
+
+            JWT_ACCESS_EXPIRES_IN=15m
+            JWT_REFRESH_EXPIRES_IN=7d
+
+        Use two different, cryptographically random secrets. Never use the example text as an actual secret, and never commit .env to GitHub.
+
+        You can generate secrets using Node.js:
+            node -e "console.log(require('node:crypto').randomBytes(64).toString('hex'))"
+
+            Run it twice and use the two different outputs.
+
+    Phase 6.3.3 — Create JWT configuration
+        Before generating tokens, let's centralize our JWT configuration. This avoids accessing environment variables repeatedly throughout the application.
+        
+        1. Create src/config/jwt.ts
+            Add:
+                import "dotenv/config";
+
+                const accessTokenSecret = process.env.JWT_ACCESS_SECRET;
+                const refreshTokenSecret = process.env.JWT_REFRESH_SECRET;
+
+                if (!accessTokenSecret || !refreshTokenSecret) {
+                    throw new Error("JWT secrets are missing in environment variables");
+                }
+
+                export const jwtConfig = {
+                    accessTokenSecret,
+                    refreshTokenSecret,
+                    accessTokenExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
+                    refreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d"
+                };
+        
+        2. Understand the code
+            A. Why check the secrets?
+                if (!accessTokenSecret || !refreshTokenSecret) {
+                    throw new Error("JWT secrets are missing in environment variables");
+                }
+
+                Suppose someone forgets to configure a JWT secret.
+                Without this check, your application might start successfully but fail when trying to generate a token.
+                We want the application to fail immediately with a clear error.
+
+            B. Why export jwtConfig?
+                export const jwtConfig = {
+                    accessTokenSecret,
+                    refreshTokenSecret,
+                    accessTokenExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
+                    refreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d"
+                };
+
+                Other files can now import the configuration:
+                    import { jwtConfig } from "../config/jwt.js";
+
+            C. Why use ||?
+                process.env.JWT_ACCESS_EXPIRES_IN || "15m"
+
+                If the environment variable is missing or empty, the application uses 15m as the default.
+        
+        3. Build the project
+            npm run build
+
+            Expected result
+                No TypeScript compilation errors.
+
+    Phase 6.3.4 — Create the JWT token service
+        We'll create a reusable service responsible for generating access and refresh tokens.
+        1. Create src/services/jwt.service.ts
+            Add the following code:
+                import jwt from "jsonwebtoken";
+                import { jwtConfig } from "../config/jwt.js";
+
+                type TokenPayload = {
+                    userId: string;
+                };
+
+                export const generateAccessToken = (userId: string): string => {
+                    return jwt.sign(
+                        { userId } satisfies TokenPayload,
+                        jwtConfig.accessTokenSecret,
+                        {
+                            expiresIn: jwtConfig.accessTokenExpiresIn as jwt.SignOptions["expiresIn"]
+                        }
+                    );
+                };
+
+                export const generateRefreshToken = (userId: string): string => {
+                    return jwt.sign(
+                        { userId } satisfies TokenPayload,
+                        jwtConfig.refreshTokenSecret,
+                        {
+                            expiresIn: jwtConfig.refreshTokenExpiresIn as jwt.SignOptions["expiresIn"]
+                        }
+                    );
+                };
+        
+        2. Understand the important concepts
+            A. What is a JWT?
+                JWT stands for JSON Web Token.
+
+                A JWT has three parts:
+                    HEADER.PAYLOAD.SIGNATURE
+
+                A JWT is commonly represented as three Base64URL-encoded sections separated by dots.
+
+                - Header: Specifies the signing algorithm.
+                - Payload: Contains information such as the user ID.
+                - Signature: Allows the server to verify that the token hasn't been modified.
+
+                Remember: JWT payloads are encoded, not encrypted. Never put passwords or sensitive personal information inside them.
+
+            B. What is userId?
+                type TokenPayload = {
+                    userId: string;
+                };
+
+                We use the database user ID to identify the authenticated user.
+
+            C. What does jwt.sign() do?
+                jwt.sign(payload, secret, options);
+
+                It creates and signs a JWT using the supplied secret.
+
+            D. Why two different secrets?
+                We use separate secrets for access and refresh tokens. This separates their signing trust and prevents a token signed for one purpose from being accepted as the other merely because they share a secret.
+        
+        3. Build the project
+            Run: npm run build
+    
+    Phase 6.3.5 — Test JWT token generation
+        Before connecting JWT tokens to login, let's verify that both token types are generated correctly.
+        1. Create a temporary test file
+            Create: src/config/test-jwt.ts
+
+        Add:
+            import jwt from "jsonwebtoken";
+            import {
+                generateAccessToken,
+                generateRefreshToken
+            } from "../../services/jwt.service.js";
+
+            const testJwt = (): void => {
+                const userId = "1";
+
+                // Generate both tokens
+                const accessToken = generateAccessToken(userId);
+                const refreshToken = generateRefreshToken(userId);
+
+                // Decode tokens to inspect their payloads
+                const accessPayload = jwt.decode(accessToken);
+                const refreshPayload = jwt.decode(refreshToken);
+
+                console.log("Access token generated:", !!accessToken);
+                console.log("Refresh token generated:", !!refreshToken);
+
+                console.log("Access token payload:", accessPayload);
+                console.log("Refresh token payload:", refreshPayload);
+            };
+
+            testJwt();
+        
+        2. Run the test
+            npx tsx src/config/test-jwt.ts
+
+            Expected output will look similar to:
+                Access token generated: true
+                Refresh token generated: true
+
+                Access token payload: {
+                    userId: '1',
+                    iat: 1794...,
+                    exp: 1794...
+                }
+
+                Refresh token payload: {
+                    userId: '1',
+                    iat: 1794...,
+                    exp: 1794...
+                }
+
+            The actual timestamps will differ.
+        
+        3. Understand iat and exp
+            JWT automatically adds these claims:
+                Claim	        Meaning
+                userId	        Identifies the user
+                iat	            Issued At — when the token was generated
+                exp	            Expiration — when the token becomes invalid
+
+            For our configuration:
+                - Access token expires after 15 minutes.
+                - Refresh token expires after 7 days.
+        
+        One important distinction: jwt.decode() only reads the token. It does not verify its signature. We'll implement signature verification separately.
+
+        Once the test succeeds, delete the temporary test file.
+
+    Phase 6.3.6 — Create the refresh tokens table
+        Why do we need another database table?
+
+        A refresh token can remain valid for seven days. If a user logs out, changes devices, or an administrator disables their account, we need a way to revoke that token.
+
+        We'll store a SHA-256 hash of each refresh token in PostgreSQL, not the original token.
+        
+        1. Create the table
+            Connect to your secure_user_management database using PostgreSQL and execute:
+                CREATE TABLE refresh_tokens (
+                    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    token_hash TEXT NOT NULL,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    revoked_at TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    CONSTRAINT fk_refresh_token_user
+                        FOREIGN KEY (user_id)
+                        REFERENCES users(id)
+                        ON DELETE CASCADE
+                );
+            
+        2. Create indexes
+            Execute:
+                CREATE UNIQUE INDEX refresh_tokens_hash_unique_idx
+                ON refresh_tokens(token_hash);
+
+                CREATE INDEX refresh_tokens_user_id_idx
+                ON refresh_tokens(user_id);
+        
+        3. Understand the columns
+            Column	            Purpose
+            id	                Unique token record ID
+            user_id	            Identifies the token owner
+            token_hash	        SHA-256 hash of the refresh token
+            expires_at	        Token expiration date
+            revoked_at	        When the token was revoked
+            created_at	        When the token was created
+
+            Important design decision: A user can have multiple refresh tokens because they may log in from multiple devices.
+
+            For example:
+                - Laptop — Refresh token 1
+                - Mobile — Refresh token 2
+                - Tablet — Refresh token 3
+            
+            Logging out from one device should not automatically log the user out from every other device.
+        
+        4. Verify the table
+            Run:
+                \d refresh_tokens
+
+            You should see the table structure and indexes.
+
+            Expected result
+                The refresh_tokens table is created successfully.
+
+    Phase 6.3.7 — Create the refresh token storage service
+        Remember our security decision:
+            - Generate a refresh token using JWT.
+            - Hash the token using SHA-256.
+            - Store only the hash in PostgreSQL.
+            - Return the original token to the client.
+        
+        1. Update src/utils/token.ts
+            You already have generateVerificationToken() in this file.
+
+            Add this new function without changing the existing function:
+                import { createHash, randomBytes } from "node:crypto";
+
+                export const hashToken = (token: string): string => {
+                    return createHash("sha256")
+                        .update(token)
+                        .digest("hex");
+                };
+
+            If createHash is already imported, don't import it again.
+            Why are we creating a reusable function?
+
+            We already use SHA-256 hashing for email verification tokens. Now we can reuse the same hashing logic for refresh tokens.
+        
+        2. Create src/services/refresh-token.service.ts
+            Add:
+                import pool from "../config/db.js";
+                import { hashToken } from "../utils/token.js";
+
+                type StoreRefreshTokenInput = {
+                    userId: string;
+                    refreshToken: string;
+                };
+
+                export const storeRefreshToken = async (
+                    tokenData: StoreRefreshTokenInput
+                ): Promise<void> => {
+                    const { userId, refreshToken } = tokenData;
+
+                    const tokenHash = hashToken(refreshToken);
+
+                    await pool.query(
+                        `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+                        VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
+                        [userId, tokenHash]
+                    );
+                };
+
+        3. Understand the implementation
+            A. Why hash the refresh token?
+                Imagine someone gets unauthorized access to your database.
+
+                If you store original refresh tokens, that person could potentially use them to authenticate as your users.
+
+                By storing only their hashes, the original tokens cannot practically be recovered from the database.
+
+            B. Why use parameterized SQL?
+                [userId, tokenHash]
+
+                This keeps user input separate from the SQL query and protects against SQL injection.
+
+            C. Why Promise<void>?
+
+                The function saves a record but doesn't need to return anything.
+        
+        4. Build the project
+            npm run build
+
+        For now, we're using a seven-day database expiration to match the JWT configuration.
+
+        Later, we'll make token expiration and database expiration derive from one shared configuration to avoid mismatches.
+
+    Phase 6.3.8 — Connect JWT generation to the login service
+        Currently, our login service:
+            1. Finds the user.
+            2. Checks account status.
+            3. Verifies the password.
+            4. Returns user information.
+
+        Now we'll add two more operations:
+            5. Generate an access token.
+            6. Generate a refresh token and store its hash in PostgreSQL.
+        
+        Step 1 — Update src/services/auth.service.ts
+            Add these imports:
+                import {
+                    generateAccessToken,
+                    generateRefreshToken
+                } from "./jwt.service.js";
+
+                import { storeRefreshToken } from "./refresh-token.service.js";
+            
+            Now find your existing loginUser() function.
+                After this password verification block:
+                    const isPasswordValid = await argon2.verify(
+                        user.password_hash,
+                        password
+                    );
+
+                    if (!isPasswordValid) {
+                        throw new AppError(401, "Invalid email or password");
+                    }
+
+                Add the following code:
+                    // 1. Generate access token
+                    const accessToken = generateAccessToken(user.id);
+
+                    // 2. Generate refresh token
+                    const refreshToken = generateRefreshToken(user.id);
+
+                    // 3. Store refresh token hash in PostgreSQL
+                    await storeRefreshToken({
+                        userId: user.id,
+                        refreshToken
+                    });
+
+                Finally, update your existing return statement.
+                Replace the previous return object with:
+                    return {
+                        user: {
+                            id: user.id,
+                            name: user.name,
+                            email: user.email,
+                            is_email_verified: user.is_email_verified,
+                            is_active: user.is_active
+                        },
+                        accessToken,
+                        refreshToken
+                    };
+
+        Step 2 — Understand the complete login process
+            1. Validate credentials
+                Verify the submitted email and password.
+    
+            2. Generate access token
+                JWT signed using the access secret.
+
+            3. Generate refresh token
+                JWT signed using the separate refresh secret.
+    
+            4. Hash refresh token
+                SHA-256 generates a hash of the original token.
+    
+            5. Save hash in PostgreSQL
+                Only the hash is stored, never the original refresh token.
+    
+            6. Return login information
+                Send user information and both original tokens to the client.
+
+                Why do we store only the refresh token?
+                    Suppose your database is compromised.
+
+                    The attacker gets the SHA-256 hash, not the original refresh token. They cannot practically recover the original token from that hash.
+
+                    The client receives the original refresh token so it can use it later.
+
+        Step 3 — Build the project
+            Run: npm run build
+    
+    Phase 6.3.9 — Test JWT login and database storage
+        Let's verify the complete login workflow using Postman and PostgreSQL.
+        
+        1. Test login in Postman
+            Method: POST
+            URL: http://localhost:3000/api/auth/login
+        
+            Body → raw → JSON:
+                {
+                    "email": "your-verified-email@example.com",
+                    "password": "YourRegisteredPassword"
+                }
+
+            Expected response structure:
+                {
+                    "success": true,
+                    "message": "Login successful",
+                    "data": {
+                        "user": {
+                        "id": "1",
+                        "name": "Birendra Singh",
+                        "email": "your-verified-email@example.com",
+                        "is_email_verified": true,
+                        "is_active": true
+                        },
+                        "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+                        "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+                    }
+                }
+            
+            Your actual JWT values will be much longer.
+
+        2. Verify refresh-token storage in PostgreSQL
+            Open PostgreSQL and execute:
+                SELECT
+                    id,
+                    user_id,
+                    token_hash,
+                    expires_at,
+                    revoked_at,
+                    created_at
+                FROM refresh_tokens
+                ORDER BY id DESC;
+
+            You should see a new record.
+
+            Check these things:
+                - user_id matches the logged-in user.
+                - token_hash contains a 64-character SHA-256 hash.
+                - expires_at is approximately seven days in the future.
+                - revoked_at is NULL.
+
+            Important security check: The token_hash must not be identical to the original refreshToken returned by Postman.
+
+        3. Test repeated login
+            Log in again using the same account.
+
+            You should receive new access and refresh tokens, and PostgreSQL should contain another refresh-token record.
+
+            This is expected because we allow multiple device sessions.
+
+            Expected result
+                Two successful logins should create two refresh-token records.
+    
+    Phase 6.3.10 — Verify access tokens
+        Before creating protected routes, we need a way to verify whether an access token is valid.
+
+        Remember:
+            - generateAccessToken() creates an access token.
+            - verifyAccessToken() will verify its signature and expiration.
+            - If the token is invalid or expired, the API will reject the request.
+        
+        Step 1: Update src/services/jwt.service.ts
+            Keep your existing functions and add the following function:
+
+                export const verifyAccessToken = (token: string): { userId: string } => {
+                    const decoded = jwt.verify(token, jwtConfig.accessTokenSecret);
+
+                    if (typeof decoded === "string" || typeof decoded.userId !== "string") {
+                        throw new Error("Invalid access token");
+                    }
+
+                    return {
+                        userId: decoded.userId
+                    };
+                };
+
+            Understand the important part
+                1. Verify the token
+                    jwt.verify(token, jwtConfig.accessTokenSecret);
+
+                    This checks:
+                        - Whether the token's signature is valid.
+                        - Whether the token has expired.
+                        - Whether the token was signed using the expected secret.
+                
+                2. Validate the decoded payload
+                    if (typeof decoded === "string" || typeof decoded.userId !== "string")
+
+                    JWT verification can return a string or an object. We need an object containing a valid userId.
+
+                3. Return the user ID
+                    return {
+                        userId: decoded.userId
+                    };
+
+                We'll use this ID later to identify the authenticated user.
+        
+    Phase 6.3.11 — Create authentication middleware
+        Now that we can generate and verify JWT access tokens, we'll create middleware that protects API endpoints.
+
+        What is authentication middleware?
+        
+        Whenever a user accesses a protected API, middleware will:
+            1. Check whether the request contains an access token.
+            2. Extract the token from the Authorization header.
+            3. Verify its signature and expiration.
+            4. Extract the user's ID.
+            5. Allow the request to continue if the token is valid.
+
+        If the token is missing, invalid, or expired, the request will be rejected.
+        
+        Step 1: Create src/middlewares/auth.middleware.ts
+            Add this code:
+                import type { RequestHandler } from "express";
+                import { verifyAccessToken } from "../services/jwt.service.js";
+                import { AppError } from "../utils/app-error.js";
+
+                export const authenticate: RequestHandler = (req, res, next) => {
+                    try {
+                        const authHeader = req.headers.authorization;
+
+                        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+                            throw new AppError(401, "Access token is required");
+                        }
+
+                        const token = authHeader.split(" ")[1];
+
+                        if (!token) {
+                            throw new AppError(401, "Access token is required");
+                        }
+
+                        const decoded = verifyAccessToken(token);
+
+                        res.locals.userId = decoded.userId;
+
+                        next();
+                } catch (error) {
+                        if (error instanceof AppError) {
+                            next(error);
+                            return;
+                        }
+
+                        next(new AppError(401, "Invalid or expired access token"));
+                    }
+                };
+
+        Step 2: Understand the important code
+            1. Authorization header
+                const authHeader = req.headers.authorization;
+
+                The client sends the access token in this format:
+                Authorization: Bearer YOUR_ACCESS_TOKEN
+
+            2. Extract the token
+                const token = authHeader.split(" ")[1];
+
+                split(" ") separates the header into two parts:
+                - Bearer — authentication scheme.
+                - YOUR_ACCESS_TOKEN — actual JWT.
+
+            3. Verify the token
+                const decoded = verifyAccessToken(token);
+
+                This uses the verification function we created in the previous step.
+
+            4. Store the user ID
+                res.locals.userId = decoded.userId;
+
+                We store the authenticated user's ID in Express res.locals, making it available to subsequent middleware and controllers during this request.
+
+            5. Continue the request
+                next();
+
+            If everything succeeds, Express moves to the next middleware or controller.
+        
+    Phase 6.3.12 — Test authentication middleware
+        Before connecting authentication middleware to actual routes, let's test it using a temporary protected endpoint.
+        
+        Step 1: Create a test route
+            Open src/routes/user.routes.ts.
+
+            Add the authentication middleware to a temporary route:
+            import { Router } from "express";
+            import { authenticate } from "../middlewares/auth.middleware.js";
+            import { sendResponse } from "../utils/api-response.js";
+
+            const router = Router();
+
+            router.get("/protected", authenticate, (req, res) => {
+                sendResponse(
+                    res,
+                    200,
+                    "Authentication successful",
+                    {
+                    userId: res.locals.userId
+                    }
+                );
+            });
+
+            export default router;
+        
+            If your existing user.routes.ts already contains routes, keep them and add only the new imports and route.
+
+        Step 2: Test using Postman
+            First, log in using your verified account:
+                POST /api/auth/login
+
+            Copy the generated access token.
+            Now test:
+                Test A — Without token
+                    GET http://localhost:3000/api/users/protected
+                
+                    Expected status: 401 Unauthorized
+
+                Test B — With valid token
+                    In Postman, select Authorization:
+                        - Type: Bearer Token
+                        - Token: Paste your access token.
+                    
+                    Expected response:
+                        {
+                            "success": true,
+                            "message": "Authentication successful",
+                            "data": {
+                                "userId": "1"
+                            }
+                        }
+
+                Test C — With invalid token
+                    Replace the token with a random string.
+                    Expected status: 401 Unauthorized
+                    Why are we doing this?
+
+                    We are verifying that:
+                        - Requests without tokens are rejected.
+                        - Valid JWTs are accepted.
+                        - Invalid or expired JWTs are rejected.
+                        - The authenticated user's ID is accessible to the next handler.
+
+    Phase 6.3.13 — Create the authenticated user profile endpoint
+        Now we'll create an endpoint that allows a logged-in user to retrieve their own profile.
+
+        Endpoint:
+            GET /api/users/me
+
+            Unlike the temporary protected endpoint, this will fetch actual user information from PostgreSQL.
+    
+        Step 1: Update src/services/user.service.ts
+            Add this function. Keep your existing functions unchanged.
+                
+                export const getUserById = async (userId: string) => {
+                    const result = await pool.query(
+                        `SELECT
+                            id,
+                            name,
+                            email,
+                            is_email_verified,
+                            is_active,
+                            created_at,
+                            updated_at
+                        FROM users
+                        WHERE id = $1
+                        LIMIT 1`,
+                        [userId]
+                    );
+
+                    return result.rows[0] ?? null;
+                };
+
+            Understand the important part:
+                - $1 is a parameterized SQL placeholder. It protects against SQL injection.
+                - [userId] supplies the actual user ID.
+                - We don't select password_hash, because profile responses must never expose password hashes.
+                - If the user doesn't exist, the function returns null.
+            
+    Phase 6.3.14 — Create the user profile controller
+        
+        Step 1: Update src/controllers/user.controller.ts
+            Keep your existing getUsers controller. Add the following imports and function.
+
+            import { getUserById } from "../services/user.service.js";
+            import { AppError } from "../utils/app-error.js";
+
+            export const getMyProfile = async (
+                _req: Request,
+                res: Response,
+                next: NextFunction
+            ): Promise<void> => {
+                try {
+                    const userId = res.locals.userId as string;
+
+                    const user = await getUserById(userId);
+
+                    if (!user) {
+                        throw new AppError(404, "User not found");
+                    }
+
+                    sendResponse(res, 200, "Profile fetched successfully", user);
+                } catch (error) {
+                    next(error);
+                }
+            };
+        
+            Make sure you don't duplicate existing imports. Your controller should have all required imports:
+            - Request, Response, NextFunction
+            - getAllUsers, getUserById
+            - sendResponse
+            - AppError
+        
+        Step 2: Understand the important line
+            const userId = res.locals.userId as string;
+        
+            Remember our authentication middleware:
+        
+            res.locals.userId = decoded.userId;
+
+            It stores the authenticated user's ID in res.locals.
+
+            Our controller retrieves that ID and uses it to fetch the corresponding profile from PostgreSQL.
+
+            The as string tells TypeScript to treat this value as a string. It doesn't perform runtime validation.
+        
+        Step 3: Build
+            Run: npm run build
+        
+    Phase 6.3.15 — Connect the profile route
+        Open src/routes/user.routes.ts.
+
+        Step 1: Add the controller import
+            import { getMyProfile } from "../controllers/user.controller.js";
+
+        Step 2: Add the profile endpoint
+            router.get("/me", authenticate, getMyProfile);
+
+            Your route follows this execution order:
+                GET /api/users/me
+                
+                authenticate middleware
+                Verifies access token and extracts user ID
+                
+                getMyProfile controller
+                Fetches the user's profile from PostgreSQL
+
+                JSON response
+
+            Keep your existing /protected route and other routes for now.
+
+        Step 3: Build and test
+            Run: npm run build
+
+            Then test in Postman:
+                Request
+                GET http://localhost:3000/api/users/me
+
+                Authorization → Bearer Token → paste your access token.
+
+            Expected response:
+                {
+                    "success": true,
+                    "message": "Profile fetched successfully",
+                    "data": {
+                        "id": "1",
+                        "name": "Birendra Singh",
+                        "email": "your-email@example.com",
+                        "is_email_verified": true,
+                        "is_active": true,
+                        "created_at": "...",
+                        "updated_at": "..."
+                    }
+                }
+
+            The actual values will come from your database.
+
+            Also test without a token. It should return 401 Unauthorized.
+
+            Don't connect the route yet. We'll do that in the next step.
+
+    You've now implemented:
+        - JWT access-token generation and verification.
+        - Authentication middleware.
+        - Protected API routes.
+        - User-specific profile retrieval from PostgreSQL.
+    
+    
+    Phase 6.3.16 — Check user status during authentication
+        There is an important security issue we should address.
+
+        Consider this scenario:
+            1. A user logs in and receives an access token valid for 15 minutes.
+            2. An administrator deactivates that user's account.
+            3. The user still has a valid access token.
+            4. The user can continue accessing protected APIs until the token expires.
+    
+        We don't want this.
+
+        Our solution is to check the user's current status in PostgreSQL whenever they access a protected endpoint.
+    
+        Step 1: Create a service function
+            Open src/services/user.service.ts.
+            Add:
+                export const getUserAuthStatus = async (userId: string) => {
+                    const result = await pool.query(
+                        `SELECT is_active, is_email_verified FROM users WHERE id = $1 LIMIT 1`,
+                        [userId]
+                    );
+
+                    return result.rows[0] ?? null;
+                };
+            
+            Understand what this function does
+            It retrieves only two fields:
+                - is_active: Is the account currently active?
+                - is_email_verified: Has the user verified their email?
+            We don't need the complete user profile for authentication checks.
+        
+    Phase 6.3.18 — Verify current user status in middleware
+        Previously, our middleware checked only the JWT. Now it will also check the user's current account status in PostgreSQL.
+        
+        Step 1: Update src/middlewares/auth.middleware.ts
+            We'll make the middleware asynchronous because it needs to query PostgreSQL.
+            Replace your existing authenticate function with this:
+
+                import type { RequestHandler } from "express";
+                import { verifyAccessToken } from "../services/jwt.service.js";
+                import { getUserAuthStatus } from "../services/user.service.js";
+                import { AppError } from "../utils/app-error.js";
+
+                export const authenticate: RequestHandler = async (req, res, next) => {
+                    try {
+                        const authHeader = req.headers.authorization;
+
+                        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+                            throw new AppError(401, "Access token is required");
+                        }
+
+                        const token = authHeader.split(" ")[1];
+
+                        if (!token) {
+                            throw new AppError(401, "Access token is required");
+                        }
+
+                        const decoded = verifyAccessToken(token);
+
+                        const user = await getUserAuthStatus(decoded.userId);
+
+                        if (!user) {
+                            throw new AppError(401, "User account not found");
+                        }
+
+                        if (!user.is_active) {
+                            throw new AppError(403, "Your account is inactive");
+                        }
+
+                        if (!user.is_email_verified) {
+                            throw new AppError(403, "Please verify your email before accessing this resource");
+                        }
+
+                        res.locals.userId = decoded.userId;
+
+                        next();
+                } catch (error) {
+                        if (error instanceof AppError) {
+                            next(error);
+                            return;
+                        }
+
+                        next(new AppError(401, "Invalid or expired access token"));
+                    }
+                };
+        
+        Step 2: Understand the new logic
+            The important addition is:
+            const user = await getUserAuthStatus(decoded.userId);
+
+            This checks the user's current database status rather than relying only on information from the JWT.
+
+            Then:
+            Condition	            Expected status
+            User doesn't exist	    401
+            Account inactive	    403
+            Email not verified	    403
+            
+            Account active and verified	Continue
+
+            One important detail: database connection or query failures should ideally produce a 500 response, not be misreported as an invalid token. We'll refine that error handling rather than hide infrastructure failures.
+    
+    Phase 6.3.19 — Improve authentication error handling
+        Currently, our middleware catches every unexpected error and returns:
+
+        next(new AppError(401, "Invalid or expired access token"));
+
+        But consider this scenario:
+            - JWT is valid.
+            - PostgreSQL server is temporarily unavailable.
+            - Database query fails.
+            - API incorrectly returns 401 Unauthorized.
+        
+        This is misleading. A database failure is a server-side problem, not an authentication failure.
+        
+        Step 1: Update the catch block
+            In src/middlewares/auth.middleware.ts, replace your existing catch block with:
+
+        Why?
+            Now:
+            Error	                    HTTP status
+            Missing token	            401
+            Invalid or expired token	401
+            Inactive account	        403
+            Unverified account	        403
+            Database failure	        500
+
+            The last case assumes your centralized error handler returns 500 for unexpected errors, as currently implemented.
+    
+
+
+Phase 6.4 — Refresh Token Validation and Rotation
+    Let's understand why we need refresh tokens before writing code.
+    
+    1. Why do we need refresh tokens?
+        Currently, our JWT configuration is:
+            Token	        Expiration	    Purpose
+            Access token	15 minutes	    Access protected APIs
+            Refresh token	7 days	        Obtain a new access token
+
+        Imagine this scenario:
+            1. User logs in successfully.
+            2. Server generates an access token and refresh token.
+            3. After 15 minutes, the access token expires.
+            4. User tries to access /api/users/me.
+            5. Server returns 401 Unauthorized.
+            6. Instead of asking the user to log in again, the client sends the refresh token to obtain a new access token.
+        
+        Token lifecycle
+            Login
+            Generate access and refresh tokens
+
+                Access token
+                15 minutes
+                Protected APIs
+
+                Refresh token
+                7 days
+                Renew access
+
+            Access token expires
+            Client sends refresh token
+
+            New access token issued
+    
+    2. What is refresh token rotation?
+        We won't reuse the same refresh token every time.
+
+        Instead:
+            - Client sends the existing refresh token.
+            - Server validates it.
+            - Server revokes the old refresh token.
+            - Server generates a new access token and refresh token.
+            - Server stores the new refresh-token hash in PostgreSQL.
+            - Client replaces both old tokens with the new ones.
+        
+        This process is called Refresh Token Rotation.
+
+        It also helps detect attempts to reuse an already-rotated refresh token.
+        
+    3. Our implementation plan
+        We'll complete this phase step by step:
+            Step	Task
+            6.4.1	Understand refresh-token validation
+            6.4.2	Create refresh-token lookup service
+            6.4.3	Verify refresh JWT
+            6.4.4	Implement token rotation transaction
+            6.4.5	Create refresh-token controller
+            6.4.6	Create refresh route
+            6.4.7	Test rotation in Postman
+            6.4.8	Test expired, invalid and reused tokens
+
+    Step 6.4.1 — Understand the validation process
+        Before coding, understand that JWT signature verification alone is not enough.
+
+        We must check two things:
+            1. Is the refresh JWT valid and unexpired?
+            2. Does its SHA-256 hash exist in refresh_tokens, with revoked_at IS NULL and expires_at > NOW()?
+    
+        Why the database check?
+
+        Suppose someone steals a refresh token. Even if its JWT signature is valid, we need the ability to revoke it immediately.
+
+        That's why we store its hash in PostgreSQL.
+
+    Phase 6.4.2 — Create refresh-token lookup service
+        We need a database function that checks whether a refresh token exists and is still valid.
+        
+        Step 1: Open src/services/refresh-token.service.ts
+            You already have storeRefreshToken() in this file. Keep it unchanged.
+
+            Add this function:
+                export const findValidRefreshToken = async (refreshToken: string) => {
+                    const tokenHash = hashToken(refreshToken);
+
+                    const result = await pool.query(
+                        `SELECT
+                            id,
+                            user_id,
+                            expires_at,
+                            revoked_at
+                        FROM refresh_tokens
+                        WHERE token_hash = $1
+                            AND revoked_at IS NULL
+                            AND expires_at > NOW()
+                        LIMIT 1`,
+                        [tokenHash]
+                    );
+
+                    return result.rows[0] ?? null;
+                };
+        
+        Step 2: Understand the SQL conditions
+            WHERE token_hash = $1
+            AND revoked_at IS NULL
+            AND expires_at > NOW()
+
+            Each condition has a purpose:
+                Condition	            Meaning
+                token_hash = $1	        Find the matching token hash
+                revoked_at IS NULL	    Token hasn't been revoked
+                expires_at > NOW()	    Token hasn't expired
+
+            Notice that we search using the hashed token, not the original refresh token.
+        
+        Step 3: Build the project
+            npm run build
+    
+    Phase 6.4.3 — Create refresh-token verification
+        We already have verifyAccessToken() in src/services/jwt.service.ts.
+
+        Now we'll create a separate function to verify refresh tokens using the refresh-token secret.
+        
+        Step 1: Open src/services/jwt.service.ts
+            Add this function. Keep your existing functions unchanged.
+
+            export const verifyRefreshToken = (token: string): { userId: string } => {
+                const decoded = jwt.verify(token, jwtConfig.refreshTokenSecret);
+
+                if (typeof decoded === "string" || typeof decoded.userId !== "string") {
+                    throw new Error("Invalid refresh token");
+                }
+
+                return {
+                    userId: decoded.userId
+                };
+            };
+        
+        Step 2: Understand the difference
+            We now have two verification functions:
+            Function	            Secret used	        Purpose
+            verifyAccessToken()	    Access secret	    Protected API requests
+            verifyRefreshToken()	Refresh secret	    Generate new tokens
+
+            Why separate secrets?
+
+            A refresh token must never be accepted as an access token, or vice versa.
+
+            Using separate secrets provides an additional security boundary.
+        
+        Step 3: Build
+            npm run build
+
+    Phase 6.4.4 — Implement refresh-token rotation using a PostgreSQL transaction
+        We'll create a function that performs three database operations safely:
+            1. Find and lock the existing refresh-token record.
+            2. Revoke the old refresh token.
+            3. Store the new refresh-token hash.
+
+        All three operations must happen inside one PostgreSQL transaction.
+        
+        Step 1: Update src/services/refresh-token.service.ts
+            Keep your existing storeRefreshToken() and findValidRefreshToken() functions.
+
+            Add these imports if they aren't already present:
+                import jwt from "jsonwebtoken";
+                import { AppError } from "../utils/app-error.js";
+            
+            Now add this function:
+
+                type RotateRefreshTokenInput = {
+                    userId: string;
+                    oldRefreshToken: string;
+                    newRefreshToken: string;
+                };
+
+                export const rotateRefreshToken = async (
+                    tokenData: RotateRefreshTokenInput
+                ): Promise<void> => {
+                    const { userId, oldRefreshToken, newRefreshToken } = tokenData;
+
+                    const oldTokenHash = hashToken(oldRefreshToken);
+                    const newTokenHash = hashToken(newRefreshToken);
+
+                    const decoded = jwt.decode(newRefreshToken);
+
+                    if (
+                        typeof decoded !== "object" ||
+                        decoded === null ||
+                        typeof decoded.exp !== "number"
+                    ) {
+                        throw new Error("Invalid new refresh token expiration");
+                    }
+
+                    const expiresAt = new Date(decoded.exp * 1000);
+
+                    const client = await pool.connect();
+
+                    try {
+                        await client.query("BEGIN");
+
+                        const result = await client.query(
+                            `SELECT id
+                            FROM refresh_tokens
+                            WHERE token_hash = $1
+                                AND user_id = $2
+                                AND revoked_at IS NULL
+                                AND expires_at > NOW()
+                            FOR UPDATE`,
+                            [oldTokenHash, userId]
+                        );
+
+                        if (result.rowCount === 0) {
+                            throw new AppError(401, "Invalid or expired refresh token");
+                        }
+
+                        await client.query(
+                            `UPDATE refresh_tokens
+                                SET revoked_at = NOW()
+                            WHERE id = $1`,
+                            [result.rows[0].id]
+                        );
+
+                        await client.query(
+                            `INSERT INTO refresh_tokens (
+                                user_id,
+                                token_hash,
+                                expires_at
+                            )
+                            VALUES ($1, $2, $3)`,
+                            [userId, newTokenHash, expiresAt]
+                        );
+
+                        await client.query("COMMIT");
+                    } catch (error) {
+                        await client.query("ROLLBACK");
+                        throw error;
+                    } finally {
+                        client.release();
+                    }
+                };
+        
+        Step 2: Understand three important concepts
+            1. Database transaction
+                await client.query("BEGIN");
+                Starts a transaction.
+    
+                await client.query("COMMIT");
+                Saves all database changes.
+    
+                await client.query("ROLLBACK");
+                Cancels the changes if something fails.
+
+                For example, if the old token is revoked but inserting the new token fails, the rollback restores the old token's unrevoked state.
+
+            2. FOR UPDATE
+                FOR UPDATE
+
+                Locks the matching database row until the transaction finishes.
+
+                This helps prevent two simultaneous requests from successfully rotating the same refresh token.
+
+            3. Actual JWT expiration
+                const expiresAt = new Date(decoded.exp * 1000);
+
+                Instead of assuming every refresh token expires after seven days, we read its actual JWT expiration.
+
+                This keeps the database expiration synchronized with the token configuration.
+        
+            Step 3: Build the project
+                Run: npm run build
+        
+    Excellent! Phase 6.4.4 is complete. Your refresh-token rotation now uses a PostgreSQL transaction to revoke the old token and store the new one safely.
+
+    Next, we'll connect the functions we've created.
+
+    Phase 6.4.5 — Create the refresh-token service logic
+        We'll create a function called refreshUserTokens() inside the existing src/services/auth.service.ts.
+
+        Its responsibility is to coordinate the complete refresh process:
+            1. Verify the refresh JWT.
+            2. Check whether its hash exists in PostgreSQL.
+            3. Confirm the token belongs to the user identified by the JWT.
+            4. Check whether the user account is active and verified.
+            5. Generate new access and refresh tokens.
+            6. Rotate the old refresh token in the database.
+            7. Return the new tokens.
+
+        Step 1: Add the required imports
+            Open src/services/auth.service.ts.
+
+            Add these imports, keeping all existing imports:
+                import {
+                    generateAccessToken,
+                    generateRefreshToken,
+                    verifyRefreshToken
+                } from "./jwt.service.js";
+
+                import {
+                    findValidRefreshToken,
+                    rotateRefreshToken
+                } from "./refresh-token.service.js";
+
+                import { getUserAuthStatus } from "./user.service.js";
+            
+                If any are already imported, don't duplicate them.
+        
+        Step 2: Add the refresh function
+            Add this function at the bottom of auth.service.ts:
+
+            export const refreshUserTokens = async (refreshToken: string) => {
+                // 1. Verify refresh JWT
+                let decoded: { userId: string };
+
+                try {
+                    decoded = verifyRefreshToken(refreshToken);
+                } catch {
+                    throw new AppError(401, "Invalid or expired refresh token");
+                }
+
+                // 2. Check refresh token in PostgreSQL
+                const storedToken = await findValidRefreshToken(refreshToken);
+
+                if (!storedToken || String(storedToken.user_id) !== decoded.userId) {
+                    throw new AppError(401, "Invalid or expired refresh token");
+                }
+
+                // 3. Check current user status
+                const user = await getUserAuthStatus(decoded.userId);
+
+                if (!user) {
+                    throw new AppError(401, "User account not found");
+                }
+
+                if (!user.is_active) {
+                    throw new AppError(403, "Your account is inactive");
+                }
+
+                if (!user.is_email_verified) {
+                    throw new AppError(403, "Please verify your email first");
+                }
+
+                // 4. Generate new tokens
+                const newAccessToken = generateAccessToken(decoded.userId);
+                const newRefreshToken = generateRefreshToken(decoded.userId);
+
+                // 5. Rotate the refresh token
+                await rotateRefreshToken({
+                    userId: decoded.userId,
+                    oldRefreshToken: refreshToken,
+                    newRefreshToken
+                });
+
+                // 6. Return new tokens
+                return {
+                    accessToken: newAccessToken,
+                    refreshToken: newRefreshToken
+                };
+            };
+
+        Step 3: Understand an important security detail
+            Why are we checking the database twice?
+            - findValidRefreshToken() checks whether the token is currently valid.
+            - rotateRefreshToken() checks again inside a transaction and locks the database row using FOR UPDATE.
+            This second check is important because another request could rotate the same token between those two operations.
+
+            Only one request should successfully rotate it.
+        
+        Step 4: Build
+            Run: npm run build
+    
+    Phase 6.4.6 — Create the refresh-token controller
+        Step 1: Open src/controllers/auth.controller.ts
+            Add this import, keeping your existing imports:
+                import { refreshUserTokens } from "../services/auth.service.js";
+
+        Step 2: Add the controller
+            Add this function at the bottom of the file:
+
+                export const refreshTokens = async (
+                    req: Request,
+                    res: Response,
+                    next: NextFunction
+                ): Promise<void> => {
+                    try {
+                        const { refreshToken } = req.body;
+
+                        const tokens = await refreshUserTokens(refreshToken);
+
+                        sendResponse(
+                            res,
+                            200,
+                            "Tokens refreshed successfully",
+                            tokens
+                        );
+                    } catch (error) {
+                        next(error);
+                    }
+                };
+        
+        Step 3: Understand the flow
+            const { refreshToken } = req.body;
+            Extracts the refresh token sent by the client.
+
+            const tokens = await refreshUserTokens(refreshToken);
+            Calls our service, which verifies the token, checks PostgreSQL, and rotates it.
+
+            sendResponse(res, 200, "Tokens refreshed successfully", tokens);
+            Returns the newly generated access and refresh tokens.
+
+        Step 4: Build
+            Run: npm run build
+    
+    Phase 6.4.7 — Create the refresh-token route
+        Step 1: Create a validation schema
+            Open src/validators/auth.validator.ts.
+
+            Add this schema:
+                export const refreshTokenSchema = z.object({
+                    refreshToken: z.string().regex(
+                        /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
+                        "Invalid refresh token format"
+                    )
+                });
+            
+            Why validation?
+                It checks that the request contains a JWT-shaped string with three dot-separated sections.
+
+            Remember: this only checks the format. Actual signature and expiration verification happen in our service.
+
+        Step 2: Create the route file
+            Create:
+                src/routes/auth/refresh-token.routes.ts
+
+            Add:
+                import { Router } from "express";
+                import { refreshTokens } from "../../controllers/auth.controller.js";
+                import { validate } from "../../middlewares/validate.middleware.js";
+                import { refreshTokenSchema } from "../../validators/auth.validator.js";
+
+                const router = Router();
+
+                router.post("/refresh-token", validate(refreshTokenSchema), refreshTokens);
+
+                export default router;
+
+        Step 3: Register the route
+            Open:
+                src/routes/auth/auth.routes.ts
+
+            Add:
+                import refreshTokenRouter from "./refresh-token.routes.js";
+            
+            Then register it:
+                router.use(refreshTokenRouter);
+            
+            Keep all existing route registrations unchanged.
+
+        Step 4: Build
+            Run: npm run build
+
+            Your new endpoint will be:
+                POST http://localhost:3000/api/auth/refresh-token
+
+            Request body:
+                {
+                    "refreshToken": "YOUR_REFRESH_TOKEN"
+                }
+    
+    Phase 6.4.8 — Test refresh-token rotation in Postman
+        Now we'll verify that the complete refresh-token flow works.
+        
+        Step 1: Login
+            Send:
+                POST http://localhost:3000/api/auth/login
+            
+            Body:
+                {
+                    "email": "your-verified-email@example.com",
+                    "password": "YourRegisteredPassword"
+                }
+            
+            Copy both tokens from the response:
+                - accessToken → Access Token A
+                - refreshToken → Refresh Token A
+        
+        Step 2: Refresh the tokens
+            Send:
+                POST http://localhost:3000/api/auth/refresh-token
+
+            Body:
+                {
+                    "refreshToken": "REFRESH_TOKEN_A"
+                }
+            
+            Expected: 200 OK
+                {
+                    "success": true,
+                    "message": "Tokens refreshed successfully",
+                    "data": {
+                        "accessToken": "NEW_ACCESS_TOKEN_B",
+                        "refreshToken": "NEW_REFRESH_TOKEN_B"
+                    }
+                }
+            
+            Save these new tokens as Access Token B and Refresh Token B.
+        
+        Step 3: Verify PostgreSQL
+            Run:
+                SELECT
+                    id,
+                    user_id,
+                    expires_at,
+                    revoked_at,
+                    created_at
+                FROM refresh_tokens
+                ORDER BY id DESC
+                LIMIT 5;
+
+            Expected:
+                Token	                revoked_at
+                Refresh Token A	        NOT NULL
+                Refresh Token B	        NULL
+
+            The old token should be revoked, and the new token should be stored.
+    
+        Step 4: Test the old refresh token again
+            
+            Send the refresh request again using Refresh Token A.
+                Expected: 401 Unauthorized
+
+                {
+                    "success": false,
+                    "message": "Invalid or expired refresh token",
+                    "data": null
+                }
+        
+        Step 5: Test the new access token
+            Send:
+                GET http://localhost:3000/api/users/me
+            
+            Authorization → Bearer Token → Access Token B.
+            Expected: 200 OK.
+
+            Important: Don't lose Refresh Token B. We'll need it for subsequent tests.
+
+    You've successfully verified that:
+        - A valid refresh token generates new tokens.
+        - The old refresh token is revoked.
+        - The new refresh token is stored in PostgreSQL.
+        - Reusing the old token returns 401.
+        - The new access token works with protected APIs.
+
+    Phase 6.4.9 — Test concurrent refresh requests
+        Now let's test an important security scenario.
+
+        Imagine: The same client sends two refresh requests almost simultaneously using the same refresh token.
+
+        Our PostgreSQL FOR UPDATE lock should ensure that only one request can rotate that token successfully.
+        
+        Step 1: Login again
+            Generate a fresh pair of tokens.
+
+            Keep the new refresh token as Refresh Token C.
+        
+        Step 2: Prepare two identical Postman requests
+            Both requests should use:
+                POST http://localhost:3000/api/auth/refresh-token
+            Body:
+                {
+                    "refreshToken": "REFRESH_TOKEN_C"
+                }
+
+        Step 3: Send both requests as close together as possible
+            Expected results:
+                Request	                        Expected status
+                First successful rotation	    200
+                Second rotation attempt	        401
+
+            The second request should fail because the first request has already revoked the original refresh token.
+
+        Important: Sending requests one after another tests single-use behavior, not true concurrency. For a proper concurrency test, we'll later use Promise.all() to send both requests simultaneously.
+    
+    Phase 6.4.10 — Test invalid and expired refresh tokens
+        Let's verify two additional security cases.
+        
+        Test A — Invalid refresh token
+            Send:
+                POST http://localhost:3000/api/auth/refresh-token
+
+            Body:
+                {
+                    "refreshToken": "invalid.refresh.token"
+                }
+
+            Expected: 401 Unauthorized
+        
+        Test B — Expired refresh token
+            We need to test an expired JWT.
+            For now, create a temporary test token using Node.js.
+
+            Run this command from your project directory:
+                node --input-type=module -e "import jwt from 'jsonwebtoken'; import 'dotenv/config'; console.log(jwt.sign({userId:'1'}, process.env.JWT_REFRESH_SECRET, {expiresIn:'1ms'}));"
+            
+            Wait a few seconds, then send the generated token to:
+                POST http://localhost:3000/api/auth/refresh-token
+            
+            Body:
+                {
+                    "refreshToken": "PASTE_EXPIRED_TOKEN"
+                }
+            
+            Expected: 401 Unauthorized
+
+            This token does not need a database record because JWT verification should reject it before the database lookup.
+        
+        Step 3 — Build
+            Run: npm run build
+
+You've implemented and tested:
+    - Refresh JWT verification.
+    - Database validation of refresh tokens.
+    - Refresh-token rotation.
+    - Old-token revocation.
+    - Invalid and expired token rejection.
+    - Sequential token-reuse rejection.
+
+
+
+Phase 6.5 — Logout API
+    Now we'll implement logout functionality.
+
+    When a user logs out, we should revoke their refresh token in PostgreSQL so it cannot be used again.
+
+    Our logout flow:
+        POST /api/auth/logout
+            Validate refresh token
+                Find token hash in PostgreSQL
+                    Revoke refresh token
+    
+    Step 6.5.1 — Create logout service
+        Open src/services/refresh-token.service.ts.
+
+        Keep all existing functions and add:
+            export const revokeRefreshToken = async (
+                refreshToken: string
+            ): Promise<void> => {
+                const tokenHash = hashToken(refreshToken);
+
+                await pool.query(
+                    `UPDATE refresh_tokens
+                        SET revoked_at = NOW()
+                    WHERE token_hash = $1
+                    AND revoked_at IS NULL`,
+                    [tokenHash]
+                );
+            };
+        
+        Understand the SQL
+            - hashToken() hashes the original refresh token.
+            - UPDATE changes the matching database record.
+            - revoked_at = NOW() records when logout occurred.
+            - revoked_at IS NULL ensures we only revoke an active token.
+        
+        We intentionally don't delete the record. Keeping it helps maintain a session history.
+        
+        Your task
+            1. Add revokeRefreshToken() to the existing service file.
+            2. Keep all existing functions unchanged.
+            3. Run: npm run build
+    
+    Phase 6.5.2 — Create logout service logic
+        Step 1: Update src/services/auth.service.ts
+        Add this import:
+            import { revokeRefreshToken } from "./refresh-token.service.js";
+        
+        If you already import functions from this file, simply add revokeRefreshToken to the existing import.
+
+        Step 2: Add the logout function
+            Add this function at the bottom of auth.service.ts:
+
+            export const logoutUser = async (refreshToken: string): Promise<void> => {
+                let decoded: { userId: string };
+
+                try {
+                    decoded = verifyRefreshToken(refreshToken);
+                } catch {
+                    throw new AppError(401, "Invalid or expired refresh token");
+                }
+
+                const storedToken = await findValidRefreshToken(refreshToken);
+
+                if (!storedToken || String(storedToken.user_id) !== decoded.userId) {
+                    throw new AppError(401, "Invalid or expired refresh token");
+                }
+
+                await revokeRefreshToken(refreshToken);
+            };
+        
+        Step 3: Understand the flow
+            1. verifyRefreshToken() verifies the JWT signature and expiration.
+            2. findValidRefreshToken() checks whether the token is active in PostgreSQL.
+            3. We compare the database user ID with the JWT user ID.
+            4. revokeRefreshToken() marks the token as revoked.
+        
+            Why don't we delete the refresh-token record?
+
+            Because retaining revoked records gives us a session history and helps investigate token reuse.
+        
+        Step 4: Build
+            Run: npm run build
+    
+    Phase 6.5.3 — Create logout controller
+        Step 1: Open src/controllers/auth.controller.ts
+            Add this import:
+                import { logoutUser } from "../services/auth.service.js";
+            
+            If you're already importing multiple functions from auth.service.js, add logoutUser to that import instead of creating a duplicate.
+        
+        Step 2: Add the controller
+            Add this function at the bottom of the file:
+                export const logout = async (
+                    req: Request,
+                    res: Response,
+                    next: NextFunction
+                ): Promise<void> => {
+                    try {
+                        const { refreshToken } = req.body;
+
+                        await logoutUser(refreshToken);
+
+                        sendResponse(res, 200, "Logout successful");
+                    } catch (error) {
+                            next(error);
+                    }
+                };
+        
+        Step 3: Understand the response
+            sendResponse(res, 200, "Logout successful");
+
+            We don't return the refresh token or user details. We simply confirm that the logout operation succeeded.
+        
+        Step 4: Build
+            Run: npm run build
+        
+    Phase 6.5.4 — Create logout validation and route
+        Step 1: Add the validation schema
+            Open src/validators/auth.validator.ts.
+
+            We already created refreshTokenSchema in Phase 6.4.7.
+
+            Good news: We can reuse it. No new validation schema is required.
+
+            This is one benefit of reusable validation schemas.
+
+        Step 2: Create the route file
+            Create:
+                src/routes/auth/logout.routes.ts
+                Add:
+                    import { Router } from "express";
+                    import { logout } from "../../controllers/auth.controller.js";
+                    import { validate } from "../../middlewares/validate.middleware.js";
+                    import { refreshTokenSchema } from "../../validators/auth.validator.js";
+
+                    const router = Router();
+
+                    router.post("/logout", validate(refreshTokenSchema), logout);
+
+                    export default router;
+                
+        Step 3: Register the route
+            Open:
+                src/routes/auth/auth.routes.ts
+
+            Add the import:
+                import logoutRouter from "./logout.routes.js";
+
+            Register it:
+                router.use(logoutRouter);
+
+            Keep all existing route registrations unchanged.
+        
+        Step 4: Build
+            Run: npm run build
+
+            Your new endpoint will be:
+            POST http://localhost:3000/api/auth/logout
+
+            Request body:
+                {
+                   "refreshToken": "YOUR_REFRESH_TOKEN"
+                }
+    
+    Phase 6.5.5 — Test logout in Postman
+        Let's verify that logout actually revokes the refresh token.
+        Step 1: Login
+            Send:
+                POST http://localhost:3000/api/auth/login
+        
+            Copy the newly generated refreshToken. Call it Refresh Token D.
+        Step 2: Logout
+            Send:
+                POST http://localhost:3000/api/auth/logout
+            
+            Body (raw JSON):
+                {
+                    "refreshToken": "REFRESH_TOKEN_D"
+                }
+            
+            Expected response: 200 OK
+                {
+                    "success": true,
+                    "message": "Logout successful",
+                    "data": null
+                }
+
+        Step 3: Verify PostgreSQL
+            Run:
+                SELECT
+                    id,
+                    user_id,
+                    expires_at,
+                    revoked_at,
+                    created_at
+                FROM refresh_tokens
+                ORDER BY id DESC
+                LIMIT 5;
+            
+            Find the latest record for Refresh Token D.
+
+            Expected: revoked_at should contain a timestamp, not NULL.
+        
+        Step 4: Try using the logged-out token
+            Send the refresh request again:
+                POST http://localhost:3000/api/auth/refresh-token
+            
+            Body:
+                {
+                    "refreshToken": "REFRESH_TOKEN_D"
+                }
+            
+            Expected: 401 Unauthorized.
+        
+        Step 5: Test another device session
+            Log in again to generate Refresh Token E.
+
+            Confirm that Refresh Token E can still refresh successfully.
+
+            This verifies that logging out from one session doesn't revoke another device's session.
+
+
+
+Phase 6 — Authentication progress
+    Step	 Feature	                            Status
+    6.1	     User login	                            Done
+    6.2	     JWT generation	                        Done
+    6.3	     JWT authentication middleware	        Done
+    6.4	     Refresh token validation & rotation    Done
+    6.5	     Logout API	                            Done
+
+Let's update our project roadmap.
+Updated plan before Phase 7
+1. Immediate logout and session management
+   - Introduce server-side session validation.
+   - Make access tokens invalid immediately after logout.
+   - Update authentication middleware.
+   - Revoke the current session during logout.
+2. Multiple-device/session testing
+   - Login from multiple devices.
+   - Logout from one device.
+   - Confirm other sessions remain active.
+   - Test refresh-token reuse and revoked sessions.
+3. Redis optimization (later)
+   - Understand why Redis is useful.
+   - Move session validation from PostgreSQL to Redis.
+   - Explore TTL and automatic session expiry.
+   - Test performance improvements.
+
+Important architectural decision
+We'll initially use PostgreSQL as our source of truth for sessions. Later, we'll introduce Redis as a performance optimization without unnecessarily changing the existing project structure or routes.
+
+
+Phase 6.6 — Immediate Logout & Session Management
+
+    Step 6.6.1 — Design the session-management database structure
+        1. Why do we need a sessions table?
+            Currently, your refresh_tokens table stores individual refresh tokens.
+
+            But we need to track each login session independently.
+
+            For example:
+                Device	    Session	Status
+                Laptop	    Session 101	Active
+                Mobile	    Session 102	Active
+                Tablet	    Session 103	Revoked
+
+            If the user logs out from their laptop, we revoke Session 101 only. The mobile and tablet sessions remain active.
+
+        2. New database table: user_sessions
+            We'll create a table to manage individual login sessions.
+
+            CREATE TABLE user_sessions (
+                id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                expires_at TIMESTAMPTZ NOT NULL,
+                revoked_at TIMESTAMPTZ,
+                last_used_at TIMESTAMPTZ,
+                user_agent TEXT,
+                ip_address INET,
+                CONSTRAINT fk_user_sessions_user
+                    FOREIGN KEY (user_id)
+                    REFERENCES users(id)
+                    ON DELETE CASCADE
+            );
+        
+        3. Create indexes
+            These will help us find a user's active sessions efficiently.
+            CREATE INDEX user_sessions_user_id_idx
+            ON user_sessions(user_id);
+
+            CREATE INDEX user_sessions_active_idx
+            ON user_sessions(user_id, expires_at)
+            WHERE revoked_at IS NULL;
+        
+        4. Connect refresh tokens with sessions
+            One session can have multiple refresh-token records because we rotate refresh tokens.
+
+            We'll add a session_id column to your existing refresh_tokens table:
+                ALTER TABLE refresh_tokens
+                ADD COLUMN session_id BIGINT
+                REFERENCES user_sessions(id)
+                ON DELETE CASCADE;
+
+            We'll initially allow NULL because your existing refresh-token records don't have a session associated with them. New login sessions will populate this column.
+            
+            Our new database relationship
+                users
+                One user can have multiple sessions
+
+                user_sessions
+                One session per login/device
+
+                refresh_tokens
+                Multiple rotated tokens can belong to one session
+
+        Now we'll modify the login flow so that every successful login creates a separate session.
+
+        Our intended flow will be:
+            1. User logs in with email and password.
+            2. Create a session in user_sessions.
+            3. Generate JWTs containing both userId and sessionId.
+            4. Store refresh token with its corresponding session_id.
+            5. Return tokens to the client.
+        
+        Later, our authentication middleware will check whether the session is still active. This is what will allow immediate logout.
+
+    Step 6.6.2 — Update JWT payloads to include sessionId
+        1. Why do we need sessionId?
+            Currently, your JWT contains:
+                {
+                    "userId": "10"
+                }
+            This identifies the user, but not the particular login session.
+
+            Suppose the same user logs in from two devices:
+            Login	userId	sessionId
+            Laptop	10	    101
+            Mobile	10	    102
+
+            Now the server can distinguish these sessions.
+
+            When the user logs out from the laptop, we revoke session 101. Session 102 remains active.
+        
+        2. Update src/services/jwt.service.ts
+            Replace your existing code with:
+                import jwt from "jsonwebtoken";
+                import { jwtConfig } from "../config/jwt.js";
+
+                type TokenPayload = {
+                    userId: string;
+                    sessionId: string;
+                };
+
+                export const generateAccessToken = (
+                    userId: string,
+                    sessionId: string
+                ): string => {
+                    return jwt.sign(
+                        { userId, sessionId } satisfies TokenPayload,
+                        jwtConfig.accessTokenSecret,
+                        {
+                            expiresIn: jwtConfig.accessTokenExpiresIn as jwt.SignOptions["expiresIn"]
+                        }
+                    );
+                };
+
+                export const generateRefreshToken = (
+                    userId: string,
+                    sessionId: string
+                ): string => {
+                    return jwt.sign(
+                        { userId, sessionId } satisfies TokenPayload,
+                        jwtConfig.refreshTokenSecret,
+                        {
+                            expiresIn: jwtConfig.refreshTokenExpiresIn as jwt.SignOptions["expiresIn"]
+                        }
+                    );
+                };
+
+                export const verifyAccessToken = (
+                    token: string
+                ): TokenPayload => {
+                    const decoded = jwt.verify(token, jwtConfig.accessTokenSecret);
+
+                    if (
+                        typeof decoded === "string" ||
+                        typeof decoded.userId !== "string" ||
+                        typeof decoded.sessionId !== "string"
+                    ) {
+                        throw new Error("Invalid access token");
+                    }
+
+                    return {
+                        userId: decoded.userId,
+                        sessionId: decoded.sessionId
+                    };
+                };
+
+                export const verifyRefreshToken = (
+                    token: string
+                ): TokenPayload => {
+                    const decoded = jwt.verify(token, jwtConfig.refreshTokenSecret);
+
+                    if (
+                        typeof decoded === "string" ||
+                        typeof decoded.userId !== "string" ||
+                        typeof decoded.sessionId !== "string"
+                    ) {
+                        throw new Error("Invalid refresh token");
+                    }
+
+                    return {
+                        userId: decoded.userId,
+                        sessionId: decoded.sessionId
+                    };
+                };
+        
+        3. Understand what changed
+            Function	            Previous	Updated
+            generateAccessToken()	userId	    userId + sessionId
+            generateRefreshToken()	userId	    userId + sessionId
+            verifyAccessToken()	    Returns     userId	Returns userId + sessionId
+            verifyRefreshToken()	Returns     userId	Returns userId + sessionId
+
+            Important: Your existing login and refresh-token code still calls these functions with only userId. TypeScript will report errors until we update those call sites in the next steps.
+    
+    Step 6.6.3 — Create the session service
+        Now we'll create a dedicated service to manage user sessions in PostgreSQL.
+        
+        New file: src/services/session.service.ts
+
+        This service will handle:
+            - Creating a new login session.
+            - Checking whether a session is active.
+            - Revoking a particular session.
+            - Revoking all sessions for a user (we'll use this later for logout from all devices).
+        
+        Add the following code:
+            import pool from "../config/db.js";
+
+            type CreateSessionInput = {
+                userId: string;
+                expiresAt: Date;
+                userAgent?: string;
+                ipAddress?: string;
+            };
+
+            export const createSession = async (
+                sessionData: CreateSessionInput
+            ): Promise<string> => {
+                const {
+                    userId,
+                    expiresAt,
+                    userAgent,
+                    ipAddress
+                } = sessionData;
+
+                const result = await pool.query(
+                    `INSERT INTO user_sessions (
+                        user_id,
+                        expires_at,
+                        user_agent,
+                        ip_address
+                    )
+                    VALUES ($1, $2, $3, $4)
+                    RETURNING id`,
+                    [
+                        userId,
+                        expiresAt,
+                        userAgent ?? null,
+                        ipAddress ?? null
+                    ]
+                );
+
+                return String(result.rows[0].id);
+            };
+        
+        Understand the code
+            Field	        Purpose
+            userId	        Identifies the account
+            expiresAt	    Defines when the session expires
+            userAgent	    Records browser/device information
+            ipAddress	    Records the login IP
+            RETURNING id	Gives us the newly created session ID
+
+        We return the session ID as a string because PostgreSQL BIGINT values are returned as strings by the pg driver.
+
+        A small security detail: We are not trusting device information to authenticate the user. The session ID and its database status will provide that control.
+
+        We now have a dedicated service for creating login sessions. Next, we'll connect it to your existing login process.
+
+        One important rule: every successful login must create a new session, even when the same user logs in from another device. Refresh-token rotation must retain that session ID.
+
+    Step 6.6.4 — Link refresh tokens with sessions
+        Open:
+            src/services/refresh-token.service.ts
+
+        We need every refresh token to belong to a particular session.
+        
+        3.1 Update the input types
+            Update StoreRefreshTokenInput:
+                type StoreRefreshTokenInput = {
+                    userId: string;
+                    sessionId: string;
+                    refreshToken: string;
+                };
+
+            Update RotateRefreshTokenInput:
+            type RotateRefreshTokenInput = {
+                userId: string;
+                sessionId: string;
+                oldRefreshToken: string;
+                newRefreshToken: string;
+            };
+
+        3.2 Update storeRefreshToken()
+            Replace the existing function with:
+                export const storeRefreshToken = async (
+                    tokenData: StoreRefreshTokenInput
+                ): Promise<void> => {
+                    const { userId, sessionId, refreshToken } = tokenData;
+
+                    const tokenHash = hashToken(refreshToken);
+
+                    await pool.query(
+                        `INSERT INTO refresh_tokens (
+                            user_id,
+                            session_id,
+                            token_hash,
+                            expires_at
+                        )
+                        VALUES ($1, $2, $3, NOW() + INTERVAL '7 days')`,
+                        [userId, sessionId, tokenHash]
+                    );
+                };
+        
+        3.3 Update findValidRefreshToken()
+            Add session_id to the SELECT:
+                SELECT
+                    id,
+                    user_id,
+                    session_id,
+                    expires_at,
+                    revoked_at
+                FROM refresh_tokens
+        
+            Keep the remaining WHERE conditions unchanged.
+
+        3.4 Update rotateRefreshToken()
+            First, extract sessionId:
+                const { userId, sessionId, oldRefreshToken, newRefreshToken } = tokenData;
+
+            In the SELECT query, add this condition:
+                AND session_id = $3
+            
+            Pass these parameters:
+                [oldTokenHash, userId, sessionId]
+            
+            In the INSERT query, include session_id:
+                INSERT INTO refresh_tokens (
+                    user_id,
+                    session_id,
+                    token_hash,
+                    expires_at
+                )
+                VALUES ($1, $2, $3, $4)
+            
+            Pass:
+                [userId, sessionId, newTokenHash, expiresAt]
+            
+            Why are we doing this?
+                A refresh token must not be rotated into another session. This ensures the new token remains associated with the original login session.
+    
+    We've established that:
+        - Every refresh token belongs to a user and a session.
+        - Refresh-token rotation preserves the original session ID.
+        - A token from one session cannot be rotated under another session ID.
+
+    Step 6.6.5 — Integrate session creation into login
+        Now we'll update loginUser() in src/services/auth.service.ts.
+
+        The new login flow will be:
+            1. Verify email and password.
+            2. Create a new session.
+            3. Generate access and refresh tokens using userId and sessionId.
+            4. Store the refresh token with the session ID.
+            5. Return the tokens.
+
+        Before changing the code, one detail: your createSession() function requires expiresAt. We'll calculate it using the configured refresh-token expiry so session lifetime matches the refresh-token lifetime.
+
+        Open src/services/auth.service.ts.
+        
+        4.1 Import the session service
+            Add this import:
+                import { createSession } from "./session.service.js";
+            
+        4.2 Update loginUser()
+            Replace your existing loginUser() function with:
+
+            export const loginUser = async (loginData: LoginInput) => {
+                const { email, password } = loginData;
+
+                // 1. Find user
+                const user = await getUserByEmail(email);
+
+                if (!user) {
+                    throw new AppError(401, "Invalid email or password");
+                }
+
+                // 2. Check account status
+                if (!user.is_active) {
+                    throw new AppError(403, "Your account is inactive");
+                }
+
+                if (!user.is_email_verified) {
+                    throw new AppError(403, "Please verify your email before logging in");
+                }
+
+                // 3. Verify password
+                const isPasswordValid = await argon2.verify(
+                    user.password_hash,
+                    password
+                );
+
+                if (!isPasswordValid) {
+                    throw new AppError(401, "Invalid email or password");
+                }
+
+                // 4. Calculate session expiry (7 days)
+                const expiresAt = new Date(
+                    Date.now() + 7 * 24 * 60 * 60 * 1000
+                );
+
+                // 5. Create a new login session
+                const sessionId = await createSession({
+                    userId: user.id,
+                    expiresAt
+                });
+
+                // 6. Generate tokens with session ID
+                const accessToken = generateAccessToken(user.id, sessionId);
+
+                const refreshToken = generateRefreshToken(user.id, sessionId);
+
+                // 7. Store refresh token with session ID
+                await storeRefreshToken({
+                    userId: user.id,
+                    sessionId,
+                    refreshToken
+                });
+
+                // 8. Return safe user information
+                return {
+                    user: {
+                        id: user.id,
+                        name: user.name,
+                        email: user.email,
+                        is_email_verified: user.is_email_verified,
+                        is_active: user.is_active
+                    },
+                    accessToken,
+                    refreshToken
+                };
+            };
+
+        4.3 Understand what happens now
+            Every successful login creates a separate database session.
+
+            For example:
+                Login	                Session ID
+                First laptop login	    101
+                Mobile login	        102
+                Second laptop login	    103
+
+            Even though all three logins belong to the same user, they have different session IDs.
+
+            Important: We are temporarily using the same seven-day duration in both session creation and refresh-token storage. Later, we'll centralize this configuration to avoid duplication.
+            
+            1. Fix auth.service.ts
+                Your build output shows that the old refreshUserTokens() code is still present around lines 197–205.
+
+                It is still calling:
+                    generateAccessToken(decoded.userId);
+                    generateRefreshToken(decoded.userId);
+                
+                And it is missing sessionId in rotateRefreshToken().
+
+                Make sure you have replaced the entire refreshUserTokens() function with the updated version from Step 5.
+
+                The important calls should be:
+                    const newAccessToken = generateAccessToken(
+                        decoded.userId,
+                        decoded.sessionId
+                    );
+
+                    const newRefreshToken = generateRefreshToken(
+                        decoded.userId,
+                        decoded.sessionId
+                    );
+
+                    await rotateRefreshToken({
+                        userId: decoded.userId,
+                        sessionId: decoded.sessionId,
+                        oldRefreshToken: refreshToken,
+                        newRefreshToken
+                    });
+
+                    Also make sure the decoded type is:
+                        let decoded: {
+                            userId: string;
+                            sessionId: string;
+                        };
+            2. Fix src/config/test/test-jwt.ts
+                Your test helper also generates tokens without a session ID.
+
+                For now, update its token-generation calls to include a session ID:
+                const sessionId = "1";
+
+                const accessToken = generateAccessToken(userId, sessionId);
+                const refreshToken = generateRefreshToken(userId, sessionId);
+    
+    Step 6.6.6 — Update Authentication Middleware
+        Goal: Make logout immediate.
+        Currently, your access token can remain valid for 15 minutes, even after logout.
+        We will fix this by checking the session in PostgreSQL whenever a user accesses a protected API.
+
+        We'll do this in small steps.
+
+        Step 1 — Add session validation function
+            Open: src/services/session.service.ts
+
+            At the bottom of the file, add this function:
+                export const validateActiveSession = async (
+                    userId: string,
+                    sessionId: string
+                ): Promise<boolean> => {
+
+                    const result = await pool.query(
+                        `UPDATE user_sessions
+                        SET last_used_at = NOW()
+                        WHERE id = $1
+                        AND user_id = $2
+                        AND revoked_at IS NULL
+                        AND expires_at > NOW()
+                        RETURNING id`,
+                        [sessionId, userId]
+                    );
+
+                    return result.rowCount !== null && result.rowCount > 0;
+                };
+            
+            Understand what this function does
+            It checks four conditions:
+                1. Does this session ID exist?
+                2. Does this session belong to this user?
+                3. Has this session been revoked?
+                4. Has this session expired?
+            
+            If all conditions are satisfied, it returns true. Otherwise, it returns false.
+
+            It also updates last_used_at whenever the session is successfully validated.
+        
+        Step 2: Update auth.middleware.ts
+            Open: src/middlewares/auth.middleware.ts
+            We need to make two changes.
+
+            1. Add this import:
+                import { validateActiveSession } from "../services/session.service.js";
+            
+            2. Update your authenticate middleware
+                Replace your existing middleware with:
+
+                import type { RequestHandler } from "express";
+                import jwt from "jsonwebtoken";
+                import { AppError } from "../utils/app-error.js";
+                import { verifyAccessToken } from "../services/jwt.service.js";
+                import { getUserAuthStatus } from "../services/user.service.js";
+                import { validateActiveSession } from "../services/session.service.js";
+
+                export const authenticate: RequestHandler = async (req, res, next) => {
+                    try {
+                        const authHeader = req.headers.authorization;
+
+                        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+                            throw new AppError(401, "Access token is required");
+                        }
+
+                        const token = authHeader.split(" ")[1];
+
+                        if (!token) {
+                            throw new AppError(401, "Access token is required");
+                        }
+
+                        let decoded: { userId: string; sessionId: string };
+
+                        try {
+                            decoded = verifyAccessToken(token);
+                        } catch (error) {
+                            if (
+                                error instanceof jwt.TokenExpiredError ||
+                                error instanceof jwt.JsonWebTokenError ||
+                                error instanceof jwt.NotBeforeError
+                            ) {
+                                throw new AppError(401, "Invalid or expired access token");
+                            }
+
+                            throw error;
+                        }
+
+                        // Check whether the user exists and is active
+                        const user = await getUserAuthStatus(decoded.userId);
+
+                        if (!user) {
+                            throw new AppError(401, "User account not found");
+                        }
+
+                        if (!user.is_active) {
+                            throw new AppError(403, "Your account is inactive");
+                        }
+
+                        if (!user.is_email_verified) {
+                            throw new AppError(
+                                403,
+                                "Please verify your email before accessing this resource"
+                            );
+                        }
+
+                        // Check whether the login session is active
+                        const isSessionActive = await validateActiveSession(
+                            decoded.userId,
+                            decoded.sessionId
+                        );
+
+                        if (!isSessionActive) {
+                            throw new AppError(401, "Session has expired or been revoked");
+                        }
+
+                        res.locals.userId = decoded.userId;
+                        res.locals.sessionId = decoded.sessionId;
+
+                        next();
+
+                    } catch (error) {
+                        next(error);
+                    }
+                };
+
+    Phase 6.6.7 — Update Refresh Token Validation
+        Goal: Prevent a user from generating new tokens using a revoked or expired session.
+
+        Currently, refreshUserTokens() checks the refresh token. We also need it to check the associated session.
+        
+        Step 1 — Open auth.service.ts
+            File: src/services/auth.service.ts
+
+            Find your existing function:
+                export const refreshUserTokens = async (refreshToken: string) => {
+                    // Existing logic
+                };
+
+            Inside this function, find this section:
+                const user = await getUserAuthStatus(decoded.userId);
+
+            Immediately before that line, add:
+                const isSessionActive = await validateActiveSession(
+                    decoded.userId,
+                    decoded.sessionId
+                );
+
+                if (!isSessionActive) {
+                    throw new AppError(401, "Session has expired or been revoked");
+                }
+
+        Step 2 — Add the import
+            At the top of auth.service.ts, add:
+                import { validateActiveSession } from "./session.service.js";
+
+            Why are we doing this?
+                Consider this example:
+                    Action	Result
+                    User logs in	                Session 15 created
+                    User receives refresh token	    Token contains session 15
+                    User logs out	                Session 15 revoked
+                    User tries refreshing token	    Rejected — 401
+
+            This prevents revoked sessions from generating new tokens.
+
+    Phase 6.6.8 — Immediate Logout.
+
+        Before changing code, I want to see your current implementation so we don't accidentally remove any existing logic.
+        
+        Step 1 — Replace your existing logoutUser() function
+            In src/services/auth.service.ts, replace the entire function with:
+
+            export const logoutUser = async (refreshToken: string): Promise<void> => {
+                // 1. Verify refresh token
+                let decoded: { userId: string; sessionId: string };
+
+                try {
+                    decoded = verifyRefreshToken(refreshToken);
+                } catch {
+                    throw new AppError(401, "Invalid or expired refresh token");
+                }
+
+                // 2. Find the refresh token in the database
+                const storedToken = await findValidRefreshToken(refreshToken);
+
+                if (
+                    !storedToken ||
+                    String(storedToken.user_id) !== decoded.userId ||
+                    String(storedToken.session_id) !== decoded.sessionId
+                ) {
+                    throw new AppError(401, "Invalid or expired refresh token");
+                }
+
+                // 3. Start database transaction
+                const client = await pool.connect();
+
+                try {
+                    await client.query("BEGIN");
+
+                    // 4. Revoke the current login session
+                    const sessionResult = await client.query(
+                        `UPDATE user_sessions
+                        SET revoked_at = NOW()
+                        WHERE id = $1
+                        AND user_id = $2
+                        AND revoked_at IS NULL
+                        AND expires_at > NOW()
+                        RETURNING id`,
+                        [decoded.sessionId, decoded.userId]
+                    );
+
+                    if (sessionResult.rowCount === 0) {
+                        throw new AppError(401, "Session has expired or been revoked");
+                    }
+
+                    // 5. Revoke all refresh tokens belonging to this session
+                    await client.query(
+                        `UPDATE refresh_tokens
+                        SET revoked_at = NOW()
+                        WHERE session_id = $1
+                        AND revoked_at IS NULL`,
+                        [decoded.sessionId]
+                    );
+
+                    // 6. Save database changes
+                    await client.query("COMMIT");
+
+                } catch (error) {
+                    await client.query("ROLLBACK");
+                    throw error;
+
+                } finally {
+                    client.release();
+                }
+            };
+        
+        Step 2 — Understand the important change
+            Previously:
+                Logout
+                └── Revoke one refresh token
+
+            Now:
+                Logout
+                └── Find current session
+                    ├── Revoke session
+                    └── Revoke all refresh tokens for that session
+
+            Because we updated authenticate middleware earlier, the next protected API request will check the session in PostgreSQL and reject the revoked session.
+        
+        Step 3 — Check your imports
+            You already have pool imported in auth.service.ts, according to your earlier code.
+
+            If revokeRefreshToken is no longer used anywhere in this file, remove it from the import:
+            revokeRefreshToken,
+
+            Make these changes and run: npm run build
+    
+    Phase 6.6.9 — Test immediate logout using Postman:
+        1. Login and obtain access and refresh tokens.
+        2. Access /api/users/me successfully.
+        3. Logout using the refresh token.
+        4. Try /api/users/me again using the same access token.
+
+        Step 1 — Login
+            Send: POST /api/auth/login
+                Use your registered, verified user's credentials.
+
+            Save these two values from the response:
+                - accessToken
+                - refreshToken
+        
+        Step 2 — Test before logout
+            Send: GET /api/users/me
+
+            Authorization: Bearer YOUR_ACCESS_TOKEN
+
+            Expected: 200 OK
+        
+        Step 3 — Logout
+            Send: POST /api/auth/logout
+
+            Body (JSON):
+                {
+                    "refreshToken": "YOUR_REFRESH_TOKEN"
+                }
+
+            Expected: 200 OK
+        
+        Step 4 — Test the same access token again
+            Send: GET /api/users/me
+
+            Use the same access token from Step 1.
+
+            Expected: 401 Unauthorized
+    
+    Phase 6.6.10 — Multiple Device Session Testing
+        Goal: Logging out from one device must not log out the user from other devices.
+
+        Imagine this situation:
+            Device A — Laptop
+                Session A           Active
+
+            Device B — Mobile
+                Session B           Active
+
+        Step 1 — Create two separate sessions
+            In Postman:
+                1. Send POST /api/auth/login.
+                2. Save the returned access token and refresh token as Device A tokens.
+                3. Send the same login request again using the same user credentials.
+                4. Save the new tokens as Device B tokens.
+            
+            Important: Each successful login should create a new session ID.
+
+            You should now have:
+                Device	Access token	Refresh token
+                A	    Token A	        Refresh A
+                B	    Token B	        Refresh B
+        
+        Step 2 — Verify both sessions are active
+            In Postman, make these two requests.
+
+            Device A
+                GET /api/users/me
+                Authorization: Bearer ACCESS_TOKEN_A
+
+                Expected: 200 OK
+
+            Device B
+                GET /api/users/me
+                Authorization: Bearer ACCESS_TOKEN_B
+
+                Expected: 200 OK
+
+            Both devices should work independently.
+        
+        Step 3 — Logout from Device A
+            Send: POST /api/auth/logout
+
+            Body → raw → JSON:
+                {
+                    "refreshToken": "REFRESH_TOKEN_A"
+                }
+
+            Expected: 200 OK
+
+        Step 4 — Verify both devices again
+            Request	Expected result
+
+            Device A: /api/users/me	401 Unauthorized
+            Device B: /api/users/me	200 OK
+
+            Important: Use the original access tokens for both tests. Do not generate new tokens.
+
+            This confirms that logging out from one device does not affect another device.
+
+You've successfully implemented and tested:
+    1. Login creates a unique session.
+    2. Access and refresh tokens contain the session ID.
+    3. Refresh tokens are associated with their sessions.
+    4. Authentication middleware checks session validity.
+    5. Refresh token validation rejects revoked sessions.
+    6. Logout revokes the entire current session.
+    7. Logout immediately invalidates existing access tokens.
+    8. Logging out from one device does not affect another device.
+
+What we've achieved
+    Your authentication flow
+    1. User Login
+        Create a new session in PostgreSQL.
+    2. JWT Generation
+        Generate access and refresh tokens with sessionId.
+    3. API Authentication
+        Validate JWT, user status, and session status.
+    4. Token Refresh
+        Validate refresh token and its associated session.
+    5. Logout
+        Revoke session and all associated refresh tokens.
+
+What's next?
+    Before moving to Phase 7 (Role-Based Access Control), I recommend one optimization phase:
+
+Phase 6.7 — Redis Session Validation Optimization
+
+Currently, every protected API request checks PostgreSQL for session validity.
+
+Later, we'll use Redis to reduce repeated database queries and improve performance under high traffic.
+
+We'll cover:
+    - Redis installation and connection.
+    - Session caching.
+    - Cache invalidation on logout.
+    - PostgreSQL as the source of truth.
+    - Testing Redis behavior.
+
+Redis learning roadmap:
+    We'll follow this sequence:
+        Step	Topic
+        1	    What is Redis? Why do we need it?
+        2	    Redis vs PostgreSQL
+        3	    How Redis stores data (key-value concept)
+        4	    Redis installation on Windows
+        5	    Redis CLI commands and practical exercises
+        6	    Connect Redis with Node.js and TypeScript
+        7	    Integrate Redis into our existing API
+        8	    Cache session validation
+        9	    Invalidate Redis cache during logout
+        10	    Test and understand performance improvements

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import transporter from "./email.js";
+import transporter from "../email.js";
 
 const testEmailConnection = async (): Promise<void> => {
     try {

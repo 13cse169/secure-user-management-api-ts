@@ -1,9 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
-import { registerUser } from "../services/auth.service.js";
-import { sendVerificationEmail } from "../services/email.service.js";
-import { sendResponse } from "../utils/api-response.js";
 import { AppError } from "../utils/app-error.js";
+import { sendResponse } from "../utils/api-response.js";
+import { sendVerificationEmail } from "../services/email.service.js";
 import { verifyEmailToken } from "../services/email-verification.service.js";
+import { registerUser, loginUser, refreshUserTokens, logoutUser } from "../services/auth.service.js";
 
 export const register = async (
     req: Request,
@@ -54,12 +54,60 @@ export const verifyEmail = async (
     try {
         await verifyEmailToken(req.body.token);
 
+        sendResponse(res, 200, "Email verified successfully");
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const login = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const loginData = await loginUser(req.body);
+
+        sendResponse(res, 200, "Login successful", loginData);
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+export const refreshTokens = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const { refreshToken } = req.body;
+
+        const tokens = await refreshUserTokens(refreshToken);
+
         sendResponse(
             res,
             200,
-            "Email verified successfully"
+            "Tokens refreshed successfully",
+            tokens
         );
     } catch (error) {
         next(error);
     }
+};
+
+export const logout = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const { refreshToken } = req.body;
+
+        await logoutUser(refreshToken);
+
+        sendResponse(res, 200, "Logout successful");
+  } catch (error) {
+        next(error);
+  }
 };

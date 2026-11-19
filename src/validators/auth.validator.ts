@@ -26,3 +26,22 @@ export const verifyEmailSchema = z.object({
         "Invalid verification token"
     )
 });
+
+export const loginSchema = z.object({
+    email: z.string()
+        .trim()
+        .email("Please enter a valid email address")
+        .max(255, "Email cannot exceed 255 characters")
+        .transform((value) => value.toLowerCase()),
+
+    password: z.string()
+        .min(1, "Password is required")
+        .max(128, "Password cannot exceed 128 characters")
+});
+
+export const refreshTokenSchema = z.object({
+    refreshToken: z.string().regex(
+        /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
+        "Invalid refresh token format"
+    )
+});
